@@ -28,18 +28,31 @@ static SDL_Renderer *sdlRenderer;
 static GtkWindow *gtkWindow;
 static GtkWidget *gtkHbox;
 static GtkWidget *gtkDA;
+
+static GtkWidget *radio_os1;
+static GtkWidget *radio_os2;
+
+static GtkWidget *radio_cal1;
+static GtkWidget *radio_cal2;
+static GtkWidget *radio_cal3;
+
 static GtkWidget *radio_green;
 static GtkWidget *radio_blue;
 static GtkWidget *radio_red;
+static GtkWidget *radio_color_hbox;
+
+static GtkWidget *entryEnergy;
+static GtkWidget *entryPeriod;
+static GtkWidget *entryArrivalTime;
+
 static GtkWidget *pBarVBox;
 static void *gdk_window;
 static void *window_id;
 
-GtkWidget *entry;
-
 // Control variables
 static int sprite = 0;
 static int f_time = 0;
+static bool running = false;
 
 // SDL variables
 static SDL_Texture *background;
@@ -52,16 +65,18 @@ static SDL_Rect backgroundRect;
 martian_t *martians;
 
 // Function declaration
-martian_t* addMartian(int x, int y, int type, int totalEnergy);
+martian_t* addMartian(int x, int y, int type, int totalEnergy, int period, int arrivalTime);
 void buttonAddMartian(GtkWidget* widget, gpointer data);
+void buttonStartStop(GtkWidget* widget, gpointer data);
+void deleteMartian(martian_t *martian);
 void destroy(GtkWidget* widget, gpointer data);
+void destroy_aux();
 static gboolean idle(void *ud);
 SDL_Texture* loadImage(const char* file, SDL_Renderer *renderer);
 void moveMartian(int direction, martian_t *martian);
 gboolean onKeyPress(GtkWidget *widget, GdkEventKey *event, gpointer data);
+void renderControlPanel(GtkWidget* widget, gpointer data);
 void renderMartian(martian_t *martian);
-
-static int counter = 0;
 
 int main(int argc, char** argv) {
     // Start SDL
@@ -72,43 +87,81 @@ int main(int argc, char** argv) {
     gtkWindow = (GtkWindow*)gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(gtkWindow, "Martians");
     gtk_window_set_default_size(gtkWindow, width, height);
+    gtk_window_set_resizable(gtkWindow, FALSE);
 
     // GTK main boxes
-    gtkHbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 740);
+    gtkHbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 820);
     GtkWidget *controlPanel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_widget_set_margin_end(controlPanel, 10);
 
     // GTK graphic elements
     gtkDA = gtk_drawing_area_new();
     GtkWidget *mainTitle = gtk_label_new("Martians");
-    entry = gtk_entry_new();
+    entryEnergy = gtk_entry_new();
+    entryPeriod = gtk_entry_new();
+    entryArrivalTime = gtk_entry_new();
+
+    // OS radio selectors
+    GtkWidget *os_label = gtk_label_new("Sim Type:");
+    radio_os1 = gtk_radio_button_new_with_label(NULL, "Interactive");
+    radio_os2 = gtk_radio_button_new_with_label(NULL, "RTOS");
+    gtk_radio_button_join_group((GtkRadioButton *) radio_os2, (GtkRadioButton *) radio_os1);
+    GtkWidget *radio_os_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+
+    gtk_box_pack_start(GTK_BOX(radio_os_hbox), os_label, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(radio_os_hbox), radio_os1, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(radio_os_hbox), radio_os2, FALSE, FALSE, 0);
+
+    g_signal_connect(radio_os1, "clicked", G_CALLBACK(renderControlPanel), "button");
+
+    // Calendarizer radio selectors
+    GtkWidget *cal_label = gtk_label_new("Calendarization:");
+    radio_cal1 = gtk_radio_button_new_with_label(NULL, "FCFS");
+    radio_cal2 = gtk_radio_button_new_with_label(NULL, "Priority");
+    radio_cal3 = gtk_radio_button_new_with_label(NULL, "SRTN");
+    gtk_radio_button_join_group((GtkRadioButton *) radio_cal2, (GtkRadioButton *) radio_cal1);
+    gtk_radio_button_join_group((GtkRadioButton *) radio_cal3, (GtkRadioButton *) radio_cal1);
+    GtkWidget *radio_cal_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+
+    gtk_box_pack_start(GTK_BOX(radio_cal_hbox), cal_label, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(radio_cal_hbox), radio_cal1, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(radio_cal_hbox), radio_cal2, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(radio_cal_hbox), radio_cal3, FALSE, FALSE, 0);
 
     // Martian color radio selectors
+    GtkWidget *color_label = gtk_label_new("Priority:");
     radio_green = gtk_radio_button_new_with_label(NULL, "Green");
     radio_blue = gtk_radio_button_new_with_label(NULL, "Blue");
     radio_red = gtk_radio_button_new_with_label(NULL, "Red");
     gtk_radio_button_join_group((GtkRadioButton *) radio_blue, (GtkRadioButton *) radio_green);
     gtk_radio_button_join_group((GtkRadioButton *) radio_red, (GtkRadioButton *) radio_green);
-    GtkWidget *radio_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    radio_color_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 
-    gtk_box_pack_start(GTK_BOX(radio_hbox), radio_green, FALSE, FALSE, 10);
-    gtk_box_pack_start(GTK_BOX(radio_hbox), radio_blue, FALSE, FALSE, 10);
-    gtk_box_pack_start(GTK_BOX(radio_hbox), radio_red, FALSE, FALSE, 10);
+    gtk_box_pack_start(GTK_BOX(radio_color_hbox), color_label, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(radio_color_hbox), radio_green, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(radio_color_hbox), radio_blue, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(radio_color_hbox), radio_red, FALSE, FALSE, 0);
 
-    GtkWidget *button = gtk_button_new_with_label ("Add Martian");
+    // Buttons
+    GtkWidget *gtkButtonAddMartian = gtk_button_new_with_label ("Add Martian");
+    GtkWidget *gtkButtonStartStop = gtk_button_new_with_label ("Start/Stop");
 
     // Progress bar stuff
+    GtkWidget *pBar_label = gtk_label_new("Energy bars:");
     pBarVBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
     PangoAttrList *mainTitleAttrs = pango_attr_list_new();
-    pango_attr_list_insert(mainTitleAttrs, pango_attr_size_new(28 * PANGO_SCALE));
+    pango_attr_list_insert(mainTitleAttrs, pango_attr_size_new(20 * PANGO_SCALE));
     gtk_label_set_attributes((GtkLabel*)mainTitle, mainTitleAttrs);
     gtk_widget_set_halign(mainTitle, GTK_ALIGN_CENTER);
 
 
-    gtk_entry_set_placeholder_text((GtkEntry*) entry, "Enter text here");
-    g_signal_connect(button, "clicked",G_CALLBACK (buttonAddMartian), "button");
+    gtk_entry_set_placeholder_text((GtkEntry*) entryEnergy, "Energy");
+    gtk_entry_set_placeholder_text((GtkEntry*) entryPeriod, "Period");
+    gtk_entry_set_placeholder_text((GtkEntry*) entryArrivalTime, "Arrival Time");
 
+    g_signal_connect(gtkButtonAddMartian, "clicked", G_CALLBACK (buttonAddMartian), "button");
+    g_signal_connect(gtkButtonStartStop, "clicked", G_CALLBACK (buttonStartStop), "button");
 
     // Add elements in boxes
     gtk_container_add (GTK_CONTAINER(gtkWindow), gtkHbox);
@@ -117,12 +170,22 @@ int main(int argc, char** argv) {
 
     // Control panel elements
     gtk_box_pack_start(GTK_BOX(controlPanel), mainTitle, FALSE, FALSE, 10);
-    gtk_box_pack_start(GTK_BOX(controlPanel), entry, FALSE, FALSE, 10);
-    gtk_box_pack_start(GTK_BOX(controlPanel), radio_hbox, FALSE, FALSE, 10);
-    gtk_box_pack_start (GTK_BOX(controlPanel), button, FALSE, FALSE, 10);
+    gtk_box_pack_start(GTK_BOX(controlPanel), radio_os_hbox, FALSE, FALSE, 10);
+    gtk_box_pack_start(GTK_BOX(controlPanel), radio_cal_hbox, FALSE, FALSE, 10);
+    gtk_box_pack_start(GTK_BOX(controlPanel), entryEnergy, FALSE, FALSE, 10);
+    gtk_box_pack_start(GTK_BOX(controlPanel), entryPeriod, FALSE, FALSE, 10);
+    gtk_box_pack_start(GTK_BOX(controlPanel), entryArrivalTime, FALSE, FALSE, 10);
+    gtk_box_pack_start(GTK_BOX(controlPanel), radio_color_hbox, FALSE, FALSE, 10);
+    gtk_box_pack_start (GTK_BOX(controlPanel), gtkButtonAddMartian, FALSE, FALSE, 10);
+    gtk_box_pack_start (GTK_BOX(controlPanel), gtkButtonStartStop, FALSE, FALSE, 10);
+    gtk_box_pack_start (GTK_BOX(controlPanel), pBar_label, FALSE, FALSE, 10);
     gtk_box_pack_start (GTK_BOX(controlPanel), pBarVBox, FALSE, FALSE, 10);
 
-    gtk_widget_show_all ((GtkWidget*) gtkWindow);
+    gtk_widget_show_all((GtkWidget*) gtkWindow);
+
+    // Default hidden elements
+    // gtk_widget_hide(entryEnergy);
+    // gtk_widget_hide(entryPeriod);
 
     // Get window ID for SDL window creation
     gdk_window = gtk_widget_get_window(GTK_WIDGET(gtkDA));
@@ -149,16 +212,23 @@ int main(int argc, char** argv) {
  * @param x x coordinate
  * @param y y coordinate
  */
-martian_t* addMartian(int x, int y, int type, int totalEnergy) {
+martian_t* addMartian(int x, int y, int type, int totalEnergy, int period, int arrivalTime) {
     martian_t *returnMartian;
     if (martians->x == -100) {
         // Head is uninitialized
         martians->id = 0;
         martians->x = x;
         martians->y = y;
+        martians->row = 12;
+        martians->col = 0;
         martians->type = type;
         martians->energy = totalEnergy;
         martians->totalEnergy = totalEnergy;
+        martians->period = period;
+        martians->arrivalTime = arrivalTime;
+        martians->destX = -1;
+        martians->destY = -1;
+        martians->movDir = -1;
         martians->next = NULL;
         returnMartian = martians;
     } else {
@@ -166,9 +236,16 @@ martian_t* addMartian(int x, int y, int type, int totalEnergy) {
         martian_t *martian = (martian_t*)malloc(sizeof(martian_t));
         martian->x = x;
         martian->y = y;
+        martian->row = 12;
+        martian->col = 0;
         martian->type = type;
         martian->energy = totalEnergy;
-        martians->totalEnergy = totalEnergy;
+        martian->totalEnergy = totalEnergy;
+        martian->period = period;
+        martian->arrivalTime = arrivalTime;
+        martian->destX = -1;
+        martian->destY = -1;
+        martian->movDir = -1;
         martian->next = NULL;
 
         // Append to end of martian list
@@ -177,8 +254,8 @@ martian_t* addMartian(int x, int y, int type, int totalEnergy) {
             last = last->next;
         }
 
-        // UPDATE ID
-        martian->id = last->id;
+        // Update id and linked list
+        martian->id = (int)last->id + 1;
         last->next = martian;
 
         returnMartian = martian;
@@ -187,14 +264,10 @@ martian_t* addMartian(int x, int y, int type, int totalEnergy) {
     return returnMartian;
 }
 
-/*
+/**
  * Called on Add Martian button
  */
 void buttonAddMartian(GtkWidget* widget, gpointer data) {
-    g_print("%s clicked %d times\n", (char*)data, ++counter);
-    const gchar *entryText = gtk_entry_get_text(GTK_ENTRY(entry));
-    g_print("Entry text is: %s\n", entryText);
-
     // Get selected martian type
     int type;
     if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_green)) == TRUE) {
@@ -205,30 +278,92 @@ void buttonAddMartian(GtkWidget* widget, gpointer data) {
         type = 2;
     }
     // Create martian struct
-    int totalEnergy = 24;
-    martian_t *martian = addMartian(0, 440, type, totalEnergy);
+    const gchar *entryEnergyText = gtk_entry_get_text(GTK_ENTRY(entryEnergy));
+    const gchar *entryPeriodText = gtk_entry_get_text(GTK_ENTRY(entryPeriod));
+    const gchar *entryArrivalTimeText = gtk_entry_get_text(GTK_ENTRY(entryArrivalTime));
 
-    // Draw energy progress bar
-    GtkWidget *pBar = gtk_progress_bar_new();
-    gtk_progress_bar_set_show_text((GtkProgressBar *) pBar, TRUE);
-    martian->pBar = pBar;
+    int totalEnergy = (int) strtol(entryEnergyText, NULL, 10);
+    int period = (int) strtol(entryPeriodText, NULL, 10);
+    int arrivalTime = (int) strtol(entryArrivalTimeText, NULL, 10);
 
-    char idLabel[3];
-    sprintf(idLabel, "%d", martian->id);
-    char pBarLabel[11] = "Marciano ";
-    strcat(pBarLabel, idLabel);
+    // Variable verification
+    if (totalEnergy <= 0 || totalEnergy > 100) {
+        printf("Energy error\n");
+    } else if (period <= 0 || period > 100) {
+        printf("Period error\n");
+    } else if (arrivalTime <= 0 || arrivalTime > 100) {
+        printf("Arrival time error\n");
+    } else {
+        printf("Energy %d, Period %d, Arrival time %d\n", totalEnergy, period, arrivalTime);
+        martian_t *martian = addMartian(0, squareLength * 11, type, totalEnergy, period, arrivalTime);
 
-    gtk_progress_bar_set_text((GtkProgressBar *) pBar, pBarLabel);
-    gtk_progress_bar_set_fraction((GtkProgressBar *) pBar, (gdouble) 10 / totalEnergy);
-    gtk_box_pack_start(GTK_BOX(pBarVBox), pBar, FALSE, FALSE, 0);
+        // Draw energy progress bar
+        GtkWidget *pBar = gtk_progress_bar_new();
+        gtk_progress_bar_set_show_text((GtkProgressBar *) pBar, TRUE);
+        martian->pBar = pBar;
 
-    printf("Added martian type %d\n", type);
+        gtk_box_pack_start(GTK_BOX(pBarVBox), pBar, FALSE, FALSE, 0);
+
+        printf("Added martian type %d\n", type);
+    }
+}
+
+/**
+ * Called when button start/stop is clicked
+ */
+void buttonStartStop(GtkWidget* widget, gpointer data) {
+    if (running) {
+        running = false;
+        printf("Stopped Simulation\n");
+    } else {
+        running = true;
+        printf("Started simulation\n");
+    }
+}
+
+/**
+ * Deletes martian
+ * @param martian to delete
+ */
+void deleteMartian(martian_t *martian) {
+    if (martian == martians) {
+        // Delete head of list
+        printf("Here\n");
+        gtk_container_remove((GtkContainer *) pBarVBox, martians->pBar);
+        martians->pBar = NULL;
+        if (martians->next != NULL) {
+            // List has more than 1 item. Can delete head.
+            martians = martians->next;
+        } else {
+            // List only has head. Disable it.
+            martians->x = -100;
+        }
+    } else {
+        // Delete item in the middle or end of list
+        martian_t *tmp = martians;
+        while (tmp->next != NULL) {
+            if (martian == tmp->next) {
+                // tmp has the previous value
+                break;
+            }
+            tmp = tmp->next;
+        }
+
+        // Reassign pointers
+        tmp->next = martian->next;
+        gtk_container_remove((GtkContainer *) pBarVBox, martian->pBar);
+        free(martian);
+    }
 }
 
 /**
  * Clears main GTK and SDL memory on program exit
  */
 void destroy(GtkWidget* widget, gpointer data) {
+    destroy_aux();
+}
+
+void destroy_aux() {
     // Safe memory exit. Delete stuff
     g_print("Deleting stuff for safe exit\n");
 
@@ -280,6 +415,7 @@ static gboolean idle(void *ud) {
         // Initialize martian linked list
         martians = (martian_t*)malloc(sizeof(martian_t));
         martians->x = -100;
+        martians->pBar = NULL;
         martians->next = NULL;
     } else {
         // Main SDL loop
@@ -287,7 +423,6 @@ static gboolean idle(void *ud) {
         SDL_RenderCopy(sdlRenderer, background, NULL, &backgroundRect);
 
         // Update every martian
-        renderMartian(martians);
         martian_t *last = martians;
         while (last->next != NULL) {
             renderMartian(last);
@@ -295,6 +430,7 @@ static gboolean idle(void *ud) {
         }
         renderMartian(last);
 
+        // Render stuff
         SDL_RenderPresent(sdlRenderer);
 
         // Handle frame on loop
@@ -307,7 +443,7 @@ static gboolean idle(void *ud) {
     }
 
     // Refresh GTK widgets
-    gtk_widget_show_all ((GtkWidget*) gtkWindow);
+    gtk_widget_show_all((GtkWidget*) gtkWindow);
     return true;
 }
 
@@ -329,6 +465,7 @@ SDL_Texture* loadImage(const char* file, SDL_Renderer* renderer) {
     // Convert to texture and delete surface
     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, image);
     SDL_FreeSurface(image);
+
     return texture;
 }
 
@@ -342,25 +479,33 @@ void moveMartian(int direction, martian_t *martian) {
         case 0:
             // Up
             if (martian->y > 0) {
-                martian->y -= 40;
+                martian->destY = martian->y - squareLength;
+                martian->movDir = direction;
+                martian->row -=1;
             }
             break;
         case 1:
             // Down
             if (martian->y < 800) {
-                martian->y += 40;
+                martian->destY = martian->y + squareLength;
+                martian->movDir = direction;
+                martian->row +=1;
             }
             break;
         case 2:
             // Left
             if (martian->x > 0) {
-                martian->x -= 40;
+                martian->destX = martian->x - squareLength;
+                martian->movDir = direction;
+                martian->col -=1;
             }
             break;
         case 3:
             // Right
             if (martian->x < 800) {
-                martian->x += 40;
+                martian->destX = martian->x + squareLength;
+                martian->movDir = direction;
+                martian->col +=1;
             }
             break;
         default:
@@ -387,10 +532,35 @@ gboolean onKeyPress (GtkWidget *widget, GdkEventKey *event, gpointer data) {
         case GDK_KEY_Right:
             moveMartian(3, martians);
             break;
+        case GDK_KEY_x:
+            destroy_aux();
+            break;
         default:
             result = FALSE;
     }
+
     return result;
+}
+
+/**
+ * Render control panel elements depending on selected OS type
+ */
+void renderControlPanel(GtkWidget* widget, gpointer data) {
+    //gtk_widget_show_all((GtkWidget *) gtkWindow);
+//    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_os1)) == TRUE) {
+//        // Interactive OS
+//        gtk_widget_show(radio_color_hbox);
+//        gtk_widget_show(entryArrivalTime);
+//        gtk_widget_hide(entryEnergy);
+//        gtk_widget_hide(entryPeriod);
+//    } else {
+//        // RTOS
+//        gtk_widget_hide(radio_color_hbox);
+//        gtk_widget_hide(entryArrivalTime);
+//        gtk_widget_show(entryEnergy);
+//        gtk_widget_show(entryPeriod);
+//    }
+    printf("Changed\n");
 }
 
 /**
@@ -398,9 +568,66 @@ gboolean onKeyPress (GtkWidget *widget, GdkEventKey *event, gpointer data) {
  * @param martian to render
  */
 void renderMartian(martian_t *martian) {
+    // Animate movement on loop
+    if (martian->movDir != -1) {
+        switch (martian->movDir) {
+            case 0:
+                // Up
+                if (martian->destY != martian->y) {
+                    martian->y -= 8;
+                } else {
+                    martian->destY = -1;
+                    martian->movDir = -1;
+                }
+                break;
+            case 1:
+                // Down
+                if (martian->destY != martian->y) {
+                    martian->y += 8;
+                } else {
+                    martian->destY = -1;
+                    martian->movDir = -1;
+                }
+                break;
+            case 2:
+                // Left
+                if (martian->destX != martian->x) {
+                    martian->x -= 8;
+                } else {
+                    martian->destX = -1;
+                    martian->movDir = -1;
+                }
+                break;
+            case 3:
+                // Right
+                if (martian->destX != martian->x) {
+                    martian->x += 8;
+                } else {
+                    martian->destX = -1;
+                    martian->movDir = -1;
+                }
+                break;
+        }
+    }
+
     // Calculate SDL variables
     martian->spriteRect = (SDL_Rect){(sprite % 7)*165, 0, 165, 165};
     martian->rect = (SDL_Rect){martian->x, martian->y, squareLength, squareLength};
+
+    // Draw martians next to each other if two martians are in the same square
+    martian_t *tmp = martians;
+    while (tmp->next != NULL) {
+        martian_t *tmp_inner = martians->next;
+        while (tmp_inner != NULL) {
+            if (tmp->row == tmp_inner->row && tmp->col == tmp_inner->col) {
+                // Two martians are in the same square
+                tmp->rect = (SDL_Rect){tmp->x + squareLength/2, tmp->y, squareLength/2, squareLength};
+                tmp_inner->rect = (SDL_Rect){tmp_inner->x, tmp_inner->y, squareLength/2, squareLength};
+            }
+            tmp_inner = tmp_inner->next;
+        }
+        tmp = tmp->next;
+    }
 
     // Set textures
     SDL_Texture *texture = martianSS_green;
@@ -408,6 +635,48 @@ void renderMartian(martian_t *martian) {
         texture = martianSS_blue;
     } else if (martian->type == 2) {
         texture = martianSS_red;
+    }
+
+    // Energy bar
+    GtkWidget *pBar = martian->pBar;
+    if (pBar != NULL) {
+        // Build label
+        char idLabel[5];
+        char typeLabel[10];
+        char energyStr[4];
+        char totalEnergyStr[4];
+
+        sprintf(idLabel, "%d", martian->id);
+        sprintf(energyStr, "%d", martian->energy);
+        sprintf(totalEnergyStr, "%d", martian->totalEnergy);
+
+        int mType = martian->type;
+        switch (mType) {
+            case 0:
+                strcpy(typeLabel, " (Green) ");
+                break;
+            case 1:
+                strcpy(typeLabel, " (Blue) ");
+                break;
+            case 2:
+                strcpy(typeLabel, " (Red) ");
+                break;
+            default:
+                strcpy(typeLabel, " (Error) ");
+                break;
+        }
+
+        // Build label
+        char pBarLabel[27] = "Martian ";
+        strcat(pBarLabel, idLabel);
+        strcat(pBarLabel, typeLabel);
+        strcat(pBarLabel, energyStr);
+        strcat(pBarLabel, "/");
+        strcat(pBarLabel, totalEnergyStr);
+
+        // Render bar
+        gtk_progress_bar_set_text((GtkProgressBar *) pBar, pBarLabel);
+        gtk_progress_bar_set_fraction((GtkProgressBar *) pBar, (gdouble) martian->energy / martian->totalEnergy);
     }
 
     // Render stuff
