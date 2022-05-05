@@ -63,6 +63,23 @@ int get_size (){
     }
 }
 
+void drawDual(){
+    // Draw martians next to each other if two martians are in the same square
+    struct Martian_node *tmp = Head;
+    while (tmp->next != NULL) {
+        struct Martian_node *tmp_inner = Head->next;
+        while (tmp_inner != NULL) {
+            if (tmp->martian->row == tmp_inner->martian->row && tmp->martian->col == tmp_inner->martian->col) {
+// Two martians are in the same square
+                int squareLength = 40;
+                tmp->martian->rect = (SDL_Rect){tmp->martian->x + squareLength/2, tmp->martian->y, squareLength/2, squareLength};
+                tmp_inner->martian->rect = (SDL_Rect){tmp_inner->martian->x, tmp_inner->martian->y, squareLength/2, squareLength};
+            }
+            tmp_inner = tmp_inner->next;
+        }
+        tmp = tmp->next;
+    }
+}
 
 // perform the bubble sort
 void RTOSPriority() {

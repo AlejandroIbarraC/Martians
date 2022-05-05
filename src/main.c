@@ -5,8 +5,9 @@
 
 #include <SDL.h>
 #include <SDL_image.h>
-
-#include "martian.h"
+#include "codigo/logic.c"
+#include "codigo/Martian.h"
+#include "codigo/Martian_node.h"
 
 #include <gtk/gtk.h>
 #include <gdk/gdkx.h>
@@ -61,25 +62,25 @@ static SDL_Texture *martianSS_blue;
 static SDL_Texture *martianSS_red;
 static SDL_Rect backgroundRect;
 
-// Data variables
-martian_t *martians;
+
 
 // Function declaration
-martian_t* addMartian(int x, int y, int type, int totalEnergy, int period, int arrivalTime);
+Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arrivalTime);
 void buttonAddMartian(GtkWidget* widget, gpointer data);
 void buttonStartStop(GtkWidget* widget, gpointer data);
-void deleteMartian(martian_t *martian);
+void deleteMartian(struct Martian_node *martian) ;
 void destroy(GtkWidget* widget, gpointer data);
 void destroy_aux();
 static gboolean idle(void *ud);
 SDL_Texture* loadImage(const char* file, SDL_Renderer *renderer);
-void moveMartian(int direction, martian_t *martian);
+
 gboolean onKeyPress(GtkWidget *widget, GdkEventKey *event, gpointer data);
 void renderControlPanel(GtkWidget* widget, gpointer data);
-void renderMartian(martian_t *martian);
+void renderMartian(Martian *martian);
 
 int main(int argc, char** argv) {
     // Start SDL
+
     SDL_Init(SDL_INIT_VIDEO);
 
     // Main GTK window
@@ -193,7 +194,7 @@ int main(int argc, char** argv) {
 
     // GTK idle function control SDL loop
     g_idle_add(&idle, 0);
-
+    initialize();
     // Handle program exit
     g_signal_connect(gtkWindow, "destroy", G_CALLBACK(destroy), NULL);
     gtk_container_set_border_width(GTK_CONTAINER(gtkWindow), 0);
@@ -203,66 +204,11 @@ int main(int argc, char** argv) {
 
     // Start GTK
     gtk_main();
+    freedata();
 
     return 0;
 }
 
-/**
- * Adds martian to linked list
- * @param x x coordinate
- * @param y y coordinate
- */
-martian_t* addMartian(int x, int y, int type, int totalEnergy, int period, int arrivalTime) {
-    martian_t *returnMartian;
-    if (martians->x == -100) {
-        // Head is uninitialized
-        martians->id = 0;
-        martians->x = x;
-        martians->y = y;
-        martians->row = 12;
-        martians->col = 0;
-        martians->type = type;
-        martians->energy = totalEnergy;
-        martians->totalEnergy = totalEnergy;
-        martians->period = period;
-        martians->arrivalTime = arrivalTime;
-        martians->destX = -1;
-        martians->destY = -1;
-        martians->movDir = -1;
-        martians->next = NULL;
-        returnMartian = martians;
-    } else {
-        // Create martian
-        martian_t *martian = (martian_t*)malloc(sizeof(martian_t));
-        martian->x = x;
-        martian->y = y;
-        martian->row = 12;
-        martian->col = 0;
-        martian->type = type;
-        martian->energy = totalEnergy;
-        martian->totalEnergy = totalEnergy;
-        martian->period = period;
-        martian->arrivalTime = arrivalTime;
-        martian->destX = -1;
-        martian->destY = -1;
-        martian->movDir = -1;
-        martian->next = NULL;
-
-        // Append to end of martian list
-        martian_t *last = martians;
-        while (last->next != NULL) {
-            last = last->next;
-        }
-
-        // Update id and linked list
-        martian->id = (int)last->id + 1;
-        last->next = martian;
-
-        returnMartian = martian;
-        printf("Added martian on %d, %d, type %d\n", martian->x, martian->y, martian->type);
-    }
-    return returnMartian;
-}
 
 /**
  * Called on Add Martian button
@@ -295,7 +241,7 @@ void buttonAddMartian(GtkWidget* widget, gpointer data) {
         printf("Arrival time error\n");
     } else {
         printf("Energy %d, Period %d, Arrival time %d\n", totalEnergy, period, arrivalTime);
-        martian_t *martian = addMartian(0, squareLength * 11, type, totalEnergy, period, arrivalTime);
+        Martian *martian = addMartian(0, squareLength * 11, type, totalEnergy, period, arrivalTime);
 
         // Draw energy progress bar
         GtkWidget *pBar = gtk_progress_bar_new();
@@ -325,22 +271,23 @@ void buttonStartStop(GtkWidget* widget, gpointer data) {
  * Deletes martian
  * @param martian to delete
  */
-void deleteMartian(martian_t *martian) {
+void deleteMartian(struct Martian_node *martian) {
+    struct Martian_node* martians=Head;
     if (martian == martians) {
         // Delete head of list
         printf("Here\n");
-        gtk_container_remove((GtkContainer *) pBarVBox, martians->pBar);
-        martians->pBar = NULL;
+        gtk_container_remove((GtkContainer *) pBarVBox, martians->martian->pBar);
+        martians->martian->pBar = NULL;
         if (martians->next != NULL) {
             // List has more than 1 item. Can delete head.
             martians = martians->next;
         } else {
             // List only has head. Disable it.
-            martians->x = -100;
+            martians->martian->x = -100;
         }
     } else {
         // Delete item in the middle or end of list
-        martian_t *tmp = martians;
+        struct Martian_node *tmp = martians;
         while (tmp->next != NULL) {
             if (martian == tmp->next) {
                 // tmp has the previous value
@@ -348,10 +295,9 @@ void deleteMartian(martian_t *martian) {
             }
             tmp = tmp->next;
         }
-
         // Reassign pointers
         tmp->next = martian->next;
-        gtk_container_remove((GtkContainer *) pBarVBox, martian->pBar);
+        gtk_container_remove((GtkContainer *) pBarVBox, martian->martian->pBar);
         free(martian);
     }
 }
@@ -412,23 +358,18 @@ static gboolean idle(void *ud) {
 
         backgroundRect = (SDL_Rect){0, 0, sdl_width, height};
 
-        // Initialize martian linked list
-        martians = (martian_t*)malloc(sizeof(martian_t));
-        martians->x = -100;
-        martians->pBar = NULL;
-        martians->next = NULL;
+
     } else {
         // Main SDL loop
         SDL_RenderClear(sdlRenderer);
         SDL_RenderCopy(sdlRenderer, background, NULL, &backgroundRect);
 
         // Update every martian
-        martian_t *last = martians;
-        while (last->next != NULL) {
-            renderMartian(last);
-            last = last->next;
+        int size=get_size();
+        for (int i=0; i<size; i++) {
+            renderMartian(find(i));
         }
-        renderMartian(last);
+
 
         // Render stuff
         SDL_RenderPresent(sdlRenderer);
@@ -469,49 +410,7 @@ SDL_Texture* loadImage(const char* file, SDL_Renderer* renderer) {
     return texture;
 }
 
-/**
- * Moves martian in a specific direction
- * @param direction 0 UP, 1 DOWN, 2 LEFT, 3 RIGHT
- * @param martian martian_t object to move
- */
-void moveMartian(int direction, martian_t *martian) {
-    switch (direction) {
-        case 0:
-            // Up
-            if (martian->y > 0) {
-                martian->destY = martian->y - squareLength;
-                martian->movDir = direction;
-                martian->row -=1;
-            }
-            break;
-        case 1:
-            // Down
-            if (martian->y < 800) {
-                martian->destY = martian->y + squareLength;
-                martian->movDir = direction;
-                martian->row +=1;
-            }
-            break;
-        case 2:
-            // Left
-            if (martian->x > 0) {
-                martian->destX = martian->x - squareLength;
-                martian->movDir = direction;
-                martian->col -=1;
-            }
-            break;
-        case 3:
-            // Right
-            if (martian->x < 800) {
-                martian->destX = martian->x + squareLength;
-                martian->movDir = direction;
-                martian->col +=1;
-            }
-            break;
-        default:
-            printf("Invalid direction for moving martian: %d\n", direction);
-    }
-}
+
 
 /**
  * Handles key presses using GTK
@@ -520,24 +419,13 @@ void moveMartian(int direction, martian_t *martian) {
 gboolean onKeyPress (GtkWidget *widget, GdkEventKey *event, gpointer data) {
     gboolean result = TRUE;
     switch (event->keyval) {
-        case GDK_KEY_Up:
-            moveMartian(0, martians);
-            break;
-        case GDK_KEY_Down:
-            moveMartian(1, martians);
-            break;
-        case GDK_KEY_Left:
-            moveMartian(2, martians);
-            break;
-        case GDK_KEY_Right:
-            moveMartian(3, martians);
-            break;
         case GDK_KEY_x:
             destroy_aux();
             break;
         default:
             result = FALSE;
     }
+
 
     return result;
 }
@@ -567,7 +455,7 @@ void renderControlPanel(GtkWidget* widget, gpointer data) {
  * Renders martian on SDL UI
  * @param martian to render
  */
-void renderMartian(martian_t *martian) {
+void renderMartian(Martian *martian) {
     // Animate movement on loop
     if (martian->movDir != -1) {
         switch (martian->movDir) {
@@ -614,20 +502,7 @@ void renderMartian(martian_t *martian) {
     martian->spriteRect = (SDL_Rect){(sprite % 7)*165, 0, 165, 165};
     martian->rect = (SDL_Rect){martian->x, martian->y, squareLength, squareLength};
 
-    // Draw martians next to each other if two martians are in the same square
-    martian_t *tmp = martians;
-    while (tmp->next != NULL) {
-        martian_t *tmp_inner = martians->next;
-        while (tmp_inner != NULL) {
-            if (tmp->row == tmp_inner->row && tmp->col == tmp_inner->col) {
-                // Two martians are in the same square
-                tmp->rect = (SDL_Rect){tmp->x + squareLength/2, tmp->y, squareLength/2, squareLength};
-                tmp_inner->rect = (SDL_Rect){tmp_inner->x, tmp_inner->y, squareLength/2, squareLength};
-            }
-            tmp_inner = tmp_inner->next;
-        }
-        tmp = tmp->next;
-    }
+    drawDual();
 
     // Set textures
     SDL_Texture *texture = martianSS_green;
@@ -648,7 +523,7 @@ void renderMartian(martian_t *martian) {
 
         sprintf(idLabel, "%d", martian->id);
         sprintf(energyStr, "%d", martian->energy);
-        sprintf(totalEnergyStr, "%d", martian->totalEnergy);
+        sprintf(totalEnergyStr, "%d", martian->executiontime);
 
         int mType = martian->type;
         switch (mType) {
@@ -676,7 +551,7 @@ void renderMartian(martian_t *martian) {
 
         // Render bar
         gtk_progress_bar_set_text((GtkProgressBar *) pBar, pBarLabel);
-        gtk_progress_bar_set_fraction((GtkProgressBar *) pBar, (gdouble) martian->energy / martian->totalEnergy);
+        gtk_progress_bar_set_fraction((GtkProgressBar *) pBar, (gdouble) martian->energy / martian->executiontime);
     }
 
     // Render stuff

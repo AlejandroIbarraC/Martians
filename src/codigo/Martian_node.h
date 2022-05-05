@@ -21,4 +21,6 @@ int get_size ();
 Martian* findMartianByID(int id);
 void RTOSPriority();
 void SRTNPriority();
+void drawDual();
+
 #endif //Martian_NODE_H

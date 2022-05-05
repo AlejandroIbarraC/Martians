@@ -3,4 +3,4 @@ project(codigo C)
 
 set(CMAKE_C_STANDARD 99)
 
-add_executable(codigo main.c Martian_node.c)
+add_executable(codigo logic.c Martian_node.c)
