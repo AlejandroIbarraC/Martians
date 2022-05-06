@@ -14,11 +14,12 @@
 
 // CONSTANTS
 // Window dimensions
-static const int width = 1200;
+static const int width = 1300;
 static const int height = 840;
 static const int sdl_width = 840;
 static const int squareLength = 40;
 static const int FPS = 60;
+static const int martianLimit = 18;
 
 // VARIABLES
 // SDL variables
@@ -30,12 +31,20 @@ static GtkWindow *gtkWindow;
 static GtkWidget *gtkHbox;
 static GtkWidget *gtkDA;
 
+static GtkWidget *radio_sim_type1;
+static GtkWidget *radio_sim_type2;
+
 static GtkWidget *radio_os1;
 static GtkWidget *radio_os2;
 
 static GtkWidget *radio_cal1;
 static GtkWidget *radio_cal2;
 static GtkWidget *radio_cal3;
+static GtkWidget *radio_cal_hbox;
+
+static GtkWidget *radio_rtos_cal1;
+static GtkWidget *radio_rtos_cal2;
+static GtkWidget *radio_rtos_cal_hbox;
 
 static GtkWidget *radio_green;
 static GtkWidget *radio_blue;
@@ -73,14 +82,16 @@ void destroy(GtkWidget* widget, gpointer data);
 void destroy_aux();
 static gboolean idle(void *ud);
 SDL_Texture* loadImage(const char* file, SDL_Renderer *renderer);
-
+void onChangeCalInteractive(GtkWidget* widget, gpointer data);
+void onChangeCalRTOS(GtkWidget* widget, gpointer data);
+void onChangeSimType(GtkWidget* widget, gpointer data);
 gboolean onKeyPress(GtkWidget *widget, GdkEventKey *event, gpointer data);
 void renderControlPanel(GtkWidget* widget, gpointer data);
+void renderControlPanelAux();
 void renderMartian(Martian *martian);
 
 int main(int argc, char** argv) {
     // Start SDL
-
     SDL_Init(SDL_INIT_VIDEO);
 
     // Main GTK window
@@ -102,8 +113,21 @@ int main(int argc, char** argv) {
     entryPeriod = gtk_entry_new();
     entryArrivalTime = gtk_entry_new();
 
+    // Sim type selectors
+    GtkWidget *sim_type_label = gtk_label_new("Sim Type:");
+    radio_sim_type1 = gtk_radio_button_new_with_label(NULL, "Manual");
+    radio_sim_type2 = gtk_radio_button_new_with_label(NULL, "Auto");
+    gtk_radio_button_join_group((GtkRadioButton *) radio_sim_type2, (GtkRadioButton *) radio_sim_type1);
+    GtkWidget *sim_type_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+
+    gtk_box_pack_start(GTK_BOX(sim_type_hbox), sim_type_label, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(sim_type_hbox), radio_sim_type1, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(sim_type_hbox), radio_sim_type2, FALSE, FALSE, 0);
+
+    g_signal_connect(radio_sim_type1, "clicked", G_CALLBACK(onChangeSimType), "button");
+
     // OS radio selectors
-    GtkWidget *os_label = gtk_label_new("Sim Type:");
+    GtkWidget *os_label = gtk_label_new("OS Type:");
     radio_os1 = gtk_radio_button_new_with_label(NULL, "Interactive");
     radio_os2 = gtk_radio_button_new_with_label(NULL, "RTOS");
     gtk_radio_button_join_group((GtkRadioButton *) radio_os2, (GtkRadioButton *) radio_os1);
@@ -122,18 +146,33 @@ int main(int argc, char** argv) {
     radio_cal3 = gtk_radio_button_new_with_label(NULL, "SRTN");
     gtk_radio_button_join_group((GtkRadioButton *) radio_cal2, (GtkRadioButton *) radio_cal1);
     gtk_radio_button_join_group((GtkRadioButton *) radio_cal3, (GtkRadioButton *) radio_cal1);
-    GtkWidget *radio_cal_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    radio_cal_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 
     gtk_box_pack_start(GTK_BOX(radio_cal_hbox), cal_label, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(radio_cal_hbox), radio_cal1, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(radio_cal_hbox), radio_cal2, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(radio_cal_hbox), radio_cal3, FALSE, FALSE, 0);
 
+    g_signal_connect(radio_cal1, "clicked", G_CALLBACK(onChangeCalInteractive), "button");
+
+    // RTOS
+    GtkWidget *cal_label_rtos = gtk_label_new("Calendarization:");
+    radio_rtos_cal1 = gtk_radio_button_new_with_label(NULL, "EDF");
+    radio_rtos_cal2 = gtk_radio_button_new_with_label(NULL, "RM");
+    gtk_radio_button_join_group((GtkRadioButton *) radio_rtos_cal2, (GtkRadioButton *) radio_rtos_cal1);
+    radio_rtos_cal_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+
+    gtk_box_pack_start(GTK_BOX(radio_rtos_cal_hbox), cal_label_rtos, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(radio_rtos_cal_hbox), radio_rtos_cal1, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(radio_rtos_cal_hbox), radio_rtos_cal2, FALSE, FALSE, 0);
+
+    g_signal_connect(radio_rtos_cal1, "clicked", G_CALLBACK(onChangeCalRTOS), "button");
+
     // Martian color radio selectors
     GtkWidget *color_label = gtk_label_new("Priority:");
-    radio_green = gtk_radio_button_new_with_label(NULL, "Green");
-    radio_blue = gtk_radio_button_new_with_label(NULL, "Blue");
-    radio_red = gtk_radio_button_new_with_label(NULL, "Red");
+    radio_green = gtk_radio_button_new_with_label(NULL, "Green (High)");
+    radio_blue = gtk_radio_button_new_with_label(NULL, "Blue (Medium)");
+    radio_red = gtk_radio_button_new_with_label(NULL, "Red (Low)");
     gtk_radio_button_join_group((GtkRadioButton *) radio_blue, (GtkRadioButton *) radio_green);
     gtk_radio_button_join_group((GtkRadioButton *) radio_red, (GtkRadioButton *) radio_green);
     radio_color_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
@@ -145,7 +184,7 @@ int main(int argc, char** argv) {
 
     // Buttons
     GtkWidget *gtkButtonAddMartian = gtk_button_new_with_label ("Add Martian");
-    GtkWidget *gtkButtonStartStop = gtk_button_new_with_label ("Start/Stop");
+    GtkWidget *gtkButtonStartStop = gtk_button_new_with_label ("Start");
 
     // Progress bar stuff
     GtkWidget *pBar_label = gtk_label_new("Energy bars:");
@@ -171,8 +210,10 @@ int main(int argc, char** argv) {
 
     // Control panel elements
     gtk_box_pack_start(GTK_BOX(controlPanel), mainTitle, FALSE, FALSE, 10);
+    gtk_box_pack_start(GTK_BOX(controlPanel), sim_type_hbox, FALSE, FALSE, 10);
     gtk_box_pack_start(GTK_BOX(controlPanel), radio_os_hbox, FALSE, FALSE, 10);
     gtk_box_pack_start(GTK_BOX(controlPanel), radio_cal_hbox, FALSE, FALSE, 10);
+    gtk_box_pack_start(GTK_BOX(controlPanel), radio_rtos_cal_hbox, FALSE, FALSE, 10);
     gtk_box_pack_start(GTK_BOX(controlPanel), entryEnergy, FALSE, FALSE, 10);
     gtk_box_pack_start(GTK_BOX(controlPanel), entryPeriod, FALSE, FALSE, 10);
     gtk_box_pack_start(GTK_BOX(controlPanel), entryArrivalTime, FALSE, FALSE, 10);
@@ -185,8 +226,8 @@ int main(int argc, char** argv) {
     gtk_widget_show_all((GtkWidget*) gtkWindow);
 
     // Default hidden elements
-    // gtk_widget_hide(entryEnergy);
-    // gtk_widget_hide(entryPeriod);
+    gtk_widget_hide(entryPeriod);
+    gtk_widget_hide(radio_rtos_cal_hbox);
 
     // Get window ID for SDL window creation
     gdk_window = gtk_widget_get_window(GTK_WIDGET(gtkDA));
@@ -194,7 +235,10 @@ int main(int argc, char** argv) {
 
     // GTK idle function control SDL loop
     g_idle_add(&idle, 0);
+
+    // Init logic
     initialize();
+
     // Handle program exit
     g_signal_connect(gtkWindow, "destroy", G_CALLBACK(destroy), NULL);
     gtk_container_set_border_width(GTK_CONTAINER(gtkWindow), 0);
@@ -228,18 +272,48 @@ void buttonAddMartian(GtkWidget* widget, gpointer data) {
     const gchar *entryPeriodText = gtk_entry_get_text(GTK_ENTRY(entryPeriod));
     const gchar *entryArrivalTimeText = gtk_entry_get_text(GTK_ENTRY(entryArrivalTime));
 
-    int totalEnergy = (int) strtol(entryEnergyText, NULL, 10);
-    int period = (int) strtol(entryPeriodText, NULL, 10);
-    int arrivalTime = (int) strtol(entryArrivalTimeText, NULL, 10);
+    int totalEnergy = (int) strtol(entryEnergyText, NULL, 10);;
+    int period;
+    int arrivalTime;
 
     // Variable verification
+    bool clear = false;
     if (totalEnergy <= 0 || totalEnergy > 100) {
         printf("Energy error\n");
-    } else if (period <= 0 || period > 100) {
-        printf("Period error\n");
-    } else if (arrivalTime <= 0 || arrivalTime > 100) {
-        printf("Arrival time error\n");
     } else {
+        gtk_entry_set_text((GtkEntry *) entryEnergy, "");
+        if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_os2)) == TRUE) {
+            // RTOS
+            period = (int) strtol(entryPeriodText, NULL, 10);
+            if (period <= 0 || period > 100) {
+                // Error
+                printf("Period error\n");
+            } else {
+                // Period is correct. Default arrival time to 1
+                clear = true;
+                gtk_entry_set_text((GtkEntry *) entryPeriod, "");
+                arrivalTime = 1;
+            }
+        } else {
+            // Interactive
+            arrivalTime = (int) strtol(entryArrivalTimeText, NULL, 10);
+            if (arrivalTime <= 0 || arrivalTime > 100) {
+                printf("Arrival time error\n");
+            } else {
+                // Arrival time is correct. Default period to 1;
+                clear = true;
+                gtk_entry_set_text((GtkEntry *) entryArrivalTime, "");
+                period = 1;
+            }
+        }
+    }
+
+    // Check clear status
+    if (clear) {
+        // Check that martian limit hasn't been reached
+
+
+        // All clear to create martian
         printf("Energy %d, Period %d, Arrival time %d\n", totalEnergy, period, arrivalTime);
         Martian *martian = addMartian(0, squareLength * 11, type, totalEnergy, period, arrivalTime);
 
@@ -249,23 +323,24 @@ void buttonAddMartian(GtkWidget* widget, gpointer data) {
         martian->pBar = pBar;
 
         gtk_box_pack_start(GTK_BOX(pBarVBox), pBar, FALSE, FALSE, 0);
+        renderControlPanelAux();
 
         printf("Added martian type %d\n", type);
+    } else {
+        // Error introducing data
+        printf("Error with introducing data\n");
     }
 }
+
 
 /**
  * Called when button start/stop is clicked
  */
 void buttonStartStop(GtkWidget* widget, gpointer data) {
-    if (running) {
-        running = false;
-        printf("Stopped Simulation\n");
-    } else {
-        running = true;
-        printf("Started simulation\n");
-    }
+    running = true;
+    printf("Started simulation\n");
 }
+
 
 /**
  * Deletes martian
@@ -302,6 +377,7 @@ void deleteMartian(struct Martian_node *martian) {
     }
 }
 
+
 /**
  * Clears main GTK and SDL memory on program exit
  */
@@ -326,6 +402,7 @@ void destroy_aux() {
     // Close GTK
     gtk_main_quit();
 }
+
 
 /**
  * GTK loop function on idle
@@ -357,8 +434,6 @@ static gboolean idle(void *ud) {
         martianSS_red = loadImage("../src/img/mmsheet_red.png", sdlRenderer);
 
         backgroundRect = (SDL_Rect){0, 0, sdl_width, height};
-
-
     } else {
         // Main SDL loop
         SDL_RenderClear(sdlRenderer);
@@ -369,7 +444,6 @@ static gboolean idle(void *ud) {
         for (int i=0; i<size; i++) {
             renderMartian(find(i));
         }
-
 
         // Render stuff
         SDL_RenderPresent(sdlRenderer);
@@ -384,9 +458,10 @@ static gboolean idle(void *ud) {
     }
 
     // Refresh GTK widgets
-    gtk_widget_show_all((GtkWidget*) gtkWindow);
+    gtk_widget_show((GtkWidget*) gtkWindow);
     return true;
 }
+
 
 /**
  * Create SDL texture from image file
@@ -411,6 +486,43 @@ SDL_Texture* loadImage(const char* file, SDL_Renderer* renderer) {
 }
 
 
+/**
+ * Activates when calendarization in interactive radio is changed
+ */
+void onChangeCalInteractive(GtkWidget* widget, gpointer data) {
+    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_cal1)) == TRUE) {
+        printf("FCFS\n");
+    } else if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_cal2)) == TRUE) {
+        printf("Priority\n");
+    } else {
+        printf("SRTN\n");
+    }
+}
+
+
+/**
+ * Activates when calendarization in RTOS radio is changed
+ */
+void onChangeCalRTOS(GtkWidget* widget, gpointer data) {
+    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_rtos_cal1)) == TRUE) {
+        printf("EDF\n");
+    } else {
+        printf("RM\n");
+    }
+}
+
+
+/**
+ * Activates when sim type radio is changed
+ */
+void onChangeSimType(GtkWidget* widget, gpointer data) {
+    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_sim_type1)) == TRUE) {
+        printf("manual\n");
+    } else {
+        printf("auto\n");
+    }
+}
+
 
 /**
  * Handles key presses using GTK
@@ -426,7 +538,6 @@ gboolean onKeyPress (GtkWidget *widget, GdkEventKey *event, gpointer data) {
             result = FALSE;
     }
 
-
     return result;
 }
 
@@ -434,22 +545,30 @@ gboolean onKeyPress (GtkWidget *widget, GdkEventKey *event, gpointer data) {
  * Render control panel elements depending on selected OS type
  */
 void renderControlPanel(GtkWidget* widget, gpointer data) {
-    //gtk_widget_show_all((GtkWidget *) gtkWindow);
-//    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_os1)) == TRUE) {
-//        // Interactive OS
-//        gtk_widget_show(radio_color_hbox);
-//        gtk_widget_show(entryArrivalTime);
-//        gtk_widget_hide(entryEnergy);
-//        gtk_widget_hide(entryPeriod);
-//    } else {
-//        // RTOS
-//        gtk_widget_hide(radio_color_hbox);
-//        gtk_widget_hide(entryArrivalTime);
-//        gtk_widget_show(entryEnergy);
-//        gtk_widget_show(entryPeriod);
-//    }
-    printf("Changed\n");
+    renderControlPanelAux();
 }
+
+void renderControlPanelAux() {
+    gtk_widget_show_all((GtkWidget *) gtkWindow);
+    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_os1)) == TRUE) {
+        // Interactive OS
+        gtk_widget_show(entryArrivalTime);
+        gtk_widget_show(radio_cal_hbox);
+        gtk_widget_hide(radio_rtos_cal_hbox);
+        gtk_widget_hide(entryPeriod);
+        gtk_entry_set_text((GtkEntry *) entryPeriod, "");
+        printf("Interactive\n");
+    } else {
+        // RTOS
+        gtk_widget_hide(entryArrivalTime);
+        gtk_widget_hide(radio_cal_hbox);
+        gtk_widget_show(radio_rtos_cal_hbox);
+        gtk_widget_show(entryPeriod);
+        gtk_entry_set_text((GtkEntry *) entryArrivalTime, "");
+        printf("RTOS\n");
+    }
+}
+
 
 /**
  * Renders martian on SDL UI
@@ -502,6 +621,7 @@ void renderMartian(Martian *martian) {
     martian->spriteRect = (SDL_Rect){(sprite % 7)*165, 0, 165, 165};
     martian->rect = (SDL_Rect){martian->x, martian->y, squareLength, squareLength};
 
+    // Draw two martians in the same square if logic determines it
     drawDual();
 
     // Set textures
