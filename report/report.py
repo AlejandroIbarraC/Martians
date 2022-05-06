@@ -56,7 +56,7 @@ for i, bar in enumerate(ax.patches):
             va='center')
     
 # Se agregan los labels de x,y
-Class = ["Proceso"]
+Class = ["Ejecucion"]
 ax.set_yticklabels(Class,rotation='horizontal')
 
 ax.set_title('Tiempos de ejecucion de los procesos')
@@ -147,6 +147,7 @@ ax.set_yticklabels(marcianos,rotation='horizontal')
 
 ax.set_title('Tiempos de llegada de los procesos')
 ax.set_xlabel('Tiempo (ms)')
+ax.set_xlabel('Proceso')
 
 # Se remueve la leyenda
 
