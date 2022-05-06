@@ -15,7 +15,7 @@ tiempos = [{"marciano":"A", "duracion":2}, {"marciano":"B", "duracion":4}, {"mar
 # Random de colores
 colores = {"":(1,1,1)}
 for marciano in marcianos:
-    colores[marciano] = (random.random()*0.6+0.4, random.random()*0.6+0.4, random.random()*0.6+0.4)
+    colores[marciano] = (random.random()*0.4+0.5, random.random()*0.4+0.5, random.random()*0.4+0.5)
 
 # Se agrega el color y id a cada tiempo
 maximo = 0
@@ -33,8 +33,8 @@ for tiempo in tiempos:
 df = pd.DataFrame(data)
 
 # Se prepara el plot
-fig, axes = plt.subplots(nrows=2, ncols=1)
-ax = df.plot(stacked=True, kind='barh', ax=axes[1])
+fig, axes = plt.subplots(nrows=2, ncols=1, constrained_layout=True)
+ax = df.plot(stacked=True, kind='barh', ax=axes[1], width=0.1)
 
 # Se agregan los labels
 
@@ -42,6 +42,11 @@ for i, bar in enumerate(ax.patches):
     height = bar.get_height()
     width = bar.get_width()
     bar.set_color(tiempos[i]["color"])
+    if(tiempos[i]["marciano"] == ""):
+        bar.set_hatch(r"//")
+        bar.set_color("white")
+    bar.set_edgecolor((0.3,0.3,0.3))
+    bar.set_linewidth(0.5)
     x = bar.get_x()
     y = bar.get_y()
     label_text = tiempos[i]["marciano"] 
@@ -51,8 +56,11 @@ for i, bar in enumerate(ax.patches):
             va='center')
     
 # Se agregan los labels de x,y
-Class = ["Ejecucion"]
+Class = ["Proceso"]
 ax.set_yticklabels(Class,rotation='horizontal')
+
+ax.set_title('Tiempos de ejecucion de los procesos')
+ax.set_xlabel('Tiempo (ms)')
 
 # Se remueve la leyenda
 
@@ -115,7 +123,6 @@ df = pd.DataFrame(data)
 ax = df.plot(stacked=True, kind='barh', ax=axes[0])
 
 # Se agregan los labels
-
 for i, bar in enumerate(ax.patches):
     height = bar.get_height()
     width = bar.get_width()
@@ -123,10 +130,13 @@ for i, bar in enumerate(ax.patches):
     y = bar.get_y()
     if(arribos[i]["vacio"]):
         label_text=""
-        bar.set_color((1,1,1))
+        bar.set_color("white")
     else:
         label_text = arribos[i]["marciano"]
         bar.set_color(arribos[i]["color"])
+        bar.set_edgecolor((0.3,0.3,0.3))
+        bar.set_linewidth(0.5)
+
     label_x = x + width / 2
     label_y = y + height / 2
     ax.text(label_x, label_y, label_text, ha='center',    
@@ -134,6 +144,9 @@ for i, bar in enumerate(ax.patches):
     
 # # Se agregan los labels de x,y
 ax.set_yticklabels(marcianos,rotation='horizontal')
+
+ax.set_title('Tiempos de llegada de los procesos')
+ax.set_xlabel('Tiempo (ms)')
 
 # Se remueve la leyenda
 
