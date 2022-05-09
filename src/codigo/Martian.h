@@ -22,6 +22,11 @@ typedef struct {
     int destX;
     int destY;
     int currentDirection;
+    int finish;
+    int changex;
+    int changey;
+    int currentChangex;
+    int currentChangey;
     int movDir;
     SDL_Rect spriteRect;
     SDL_Rect rect;

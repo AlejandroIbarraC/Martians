@@ -50,6 +50,25 @@ Martian* findMartianByID(int id){
     }
 }
 
+Martian* deleteMartian(int id){
+    struct Martian_node* tmp = Head;
+    if (Head == NULL) {
+        return NULL;
+    }
+    while (1){
+        if (tmp->next->martian->id==id){
+            tmp->martian;
+        }
+        else if(tmp->next == NULL) {
+            return NULL;
+        }
+        else {
+            tmp = tmp->next;
+        }
+    }
+}
+
+
 int get_size (){
     struct Martian_node* tmp = Head;
     int size=0;
@@ -63,24 +82,11 @@ int get_size (){
     }
 }
 
-void drawDual(){
-    // Draw martians next to each other if two martians are in the same square
-    struct Martian_node *tmp = Head;
-    while (tmp->next != NULL) {
-        struct Martian_node *tmp_inner = Head->next;
-        while (tmp_inner != NULL) {
-            if (tmp->martian->row == tmp_inner->martian->row && tmp->martian->col == tmp_inner->martian->col) {
-                // Two martians are in the same square
-                //
-                int squareLength = 40;
-                tmp->martian->rect = (SDL_Rect){tmp->martian->x + squareLength/2, tmp->martian->y, squareLength/2, squareLength};
-                tmp_inner->martian->rect = (SDL_Rect){tmp_inner->martian->x, tmp_inner->martian->y, squareLength/2, squareLength};
-            }
-            tmp_inner = tmp_inner->next;
-        }
-        tmp = tmp->next;
-    }
-}
+#define UP 0
+#define DOWN 1
+#define LEFT 2
+#define RIGHT 3
+
 
 // perform the bubble sort
 void RTOSPriority() {
@@ -115,6 +121,28 @@ void SRTNPriority() {
     for (int step = 0; step < size - 1; ++step) {
         for (int i = 0; i < size - step - 1; ++i) {
             if (findMartianByID(array[i])->executiontime >findMartianByID(array[i+1])->executiontime) {
+                int temp = array[i];
+                array[i] = array[i + 1];
+                array[i + 1] = temp;
+            }
+        }
+    }
+    printf("orden: \n");
+    for (int i=0; i<size;i++){
+        findMartianByID(array[i])->priority=i;
+        printf("marciano #%d\n", array[i]);
+    }
+}
+void FCFSPriority() {
+    // loop to access each array element
+    int size= get_size();
+    int array [size];
+    for (int i=0; i<size;i++){
+        array[i]=i;
+    }
+    for (int step = 0; step < size - 1; ++step) {
+        for (int i = 0; i < size - step - 1; ++i) {
+            if (findMartianByID(array[i])->arrivalTime >findMartianByID(array[i+1])->arrivalTime) {
                 int temp = array[i];
                 array[i] = array[i + 1];
                 array[i + 1] = temp;

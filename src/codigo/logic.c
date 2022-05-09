@@ -5,23 +5,10 @@
 #include <time.h>
 #include <unistd.h>
 #include <limits.h>
+#include <semaphore.h>
 #include "Martian.h"
 #include "Martian_node.h"
-
-#define EDF 1
-#define RM 2
-
-#define FCFS 1
-#define Prioridad 2
-#define SRTN 3
-
-#define RTOS 1
-#define INTERACTIVE 2
-
-#define UP 0
-#define DOWN 1
-#define LEFT 2
-#define RIGHT 3
+#include<fcntl.h>
 
 int laberinto[21][22]={
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -46,29 +33,51 @@ int laberinto[21][22]={
         {0,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0},
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 };
+
+
+#define EDF 1
+#define RM 2
+
+#define FCFS 1
+#define PRIORITY 2
+#define SRTN 3
+
+#define RTOS 1
+#define INTERACTIVE 2
+
+#define UP 0
+#define DOWN 1
+#define LEFT 2
+#define RIGHT 3
+
+#define STARTSEMAPHORE "startsemaphore"
+
+sem_t* startSemaphore;
 pthread_mutex_t mutex;
 pthread_mutex_t mutexMain;
-int counter = 0;
+
 int currentMartian=-1;
-int mode=RM;
-int scheduler=Prioridad;
+int mode=EDF;
+int scheduler=FCFS;
 int systemType = INTERACTIVE;
 int lastTime=0;
 int countMartians=0;
+int finish=0;
 void updateMartiansToReady(clock_t initialTime, clock_t finalTIme);
 int getNextCurrentMartian();
 Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arrivalTime);
 void setPriority(Martian* martian);
-void moveMartian(int direction, Martian *martian);
+void moveMartian(int lastdirection,int direction, Martian *martian);
 
 void updateMartiansToReady(clock_t initialTime, clock_t finalTIme) {
     int tiempoTotal;
     for (int i = 0; i < get_size(); i++) {
         Martian *martian = find(i);
         tiempoTotal = (int) (finalTIme - initialTime) / CLOCKS_PER_SEC;
-        if (tiempoTotal % martian->period == 0) {
+        if (tiempoTotal % martian->period == 0 && martian->finish==0) {
             if (martian->ready==1 && lastTime!=tiempoTotal){
                 printf("Error no se pudo calendarizar a marciano #%d correctamente, tiempo: %d segundos\n",martian->id, tiempoTotal);
+                finish=1;
             }
             martian->energy=martian->executiontime;
             martian->ready = 1;
@@ -82,7 +91,7 @@ int getNextCurrentMartian(){
     int currentPriority=INT_MAX;
     for (int i=0; i<listSize; i++){
         Martian* martian=find(i);
-        if (martian->ready==1 && martian->priority<=currentPriority && (systemType!=INTERACTIVE || martian->arrivalTime<=lastTime)){
+        if (martian->ready==1 && martian->finish==0 && martian->priority<=currentPriority && (systemType!=INTERACTIVE || martian->arrivalTime<=lastTime)){
             martianid=martian->id;
             currentPriority=martian->priority;
         }
@@ -90,66 +99,78 @@ int getNextCurrentMartian(){
     return martianid;
 }
 
-_Noreturn void *mainThread(void *arg){
-    clock_t  tiempoInicial,tiempoFinal, executedTime;
+void *mainThread(void *arg){
+    sem_wait(startSemaphore);
+    clock_t  tiempoInicial,tiempoFinal;
+    int executedTime=0;
     tiempoInicial = clock();
     int tiempoTotal;
-
-    while(1){
+    while(finish==0){
         pthread_mutex_lock(&mutexMain);
         tiempoFinal=clock();
-        if (systemType==RTOS) {
-            updateMartiansToReady(tiempoInicial,tiempoFinal);
-        }
+
         tiempoTotal= (int)  (tiempoFinal-tiempoInicial)/CLOCKS_PER_SEC;
-        lastTime=tiempoTotal;
+
         if (currentMartian==-1){
+            if (systemType==RTOS) {
+                updateMartiansToReady(tiempoInicial,tiempoFinal);
+            }
             int martianid=getNextCurrentMartian();
             if (martianid!=-1) {
                 int time= (int)  (tiempoFinal-tiempoInicial)/CLOCKS_PER_SEC;
                 printf("entra marciano #%d a los %d segundos\n", martianid, time);
                 currentMartian = martianid;
-                executedTime = clock();
+                executedTime = tiempoTotal;
             }
         }
         else {
             Martian* martian = findMartianByID(currentMartian);
             if (martian!=NULL){
-                int time= (int)  (tiempoFinal-executedTime)/CLOCKS_PER_SEC;
+                int time= tiempoTotal-executedTime;
                 int martianExecutedTime=martian->executedtime+time;
                 martian->energy=martian->executiontime-martianExecutedTime;
-                if (martianExecutedTime>= martian->executiontime){
+                if (martianExecutedTime>= martian->executiontime || martian->finish==1){
                     tiempoTotal = (int) (tiempoFinal-tiempoInicial)/CLOCKS_PER_SEC;
                     printf("marciano #%d ejecutado %d segundos\n", currentMartian, martianExecutedTime);
                     printf("sale marciano #%d a los %d segundos\n", currentMartian, tiempoTotal);
+                    currentMartian=-1;
                     martian->executedtime=0;
                     martian->energy=0;
                     martian->ready=0;
-                    currentMartian=-1;
+                    if (systemType==RTOS) {
+                        updateMartiansToReady(tiempoInicial,tiempoFinal);
+                    }
                     int martianid=getNextCurrentMartian();
                     if (martianid!=-1) {
                         int time= (int)  (tiempoFinal-tiempoInicial)/CLOCKS_PER_SEC;
                         printf("entra marciano #%d a los %d segundos\n", martianid, time);
                         currentMartian = martianid;
-                        executedTime = clock();
+                        executedTime = tiempoTotal;
                     }
                 }
                 if (((systemType==RTOS && mode==RM) || systemType==INTERACTIVE)  && currentMartian!=-1){
+                    if (systemType==RTOS) {
+                        updateMartiansToReady(tiempoInicial,tiempoFinal);
+                    }
                     int martianid=getNextCurrentMartian();
                     if (martianid!=-1 && martianid!=currentMartian) {
-                        time= (int)  (tiempoFinal-executedTime)/CLOCKS_PER_SEC;
+                        tiempoTotal = (int) (tiempoFinal-tiempoInicial)/CLOCKS_PER_SEC;
+                        time= tiempoTotal-executedTime;
                         martian->executedtime+=time;
                         martian->energy=martian->executiontime-martian->executedtime;
                         printf("marciano #%d ejecutado %d segundos para un total de %d segundos\n", currentMartian, time ,martian->executedtime);
-                        tiempoTotal = (int) (tiempoFinal-tiempoInicial)/CLOCKS_PER_SEC;
+
                         printf("interrupcion de marciano #%d a el marciano activo #%d a los %d segundos\n", martianid, currentMartian ,tiempoTotal);
                         currentMartian = martianid;
-                        executedTime = clock();
+                        executedTime = tiempoTotal;
                     }
                 }
-
             }
         }
+        if (systemType==RTOS) {
+            updateMartiansToReady(tiempoInicial,tiempoFinal);
+        }
+        lastTime=tiempoTotal;
         pthread_mutex_unlock(&mutexMain);
     }
 }
@@ -205,11 +226,9 @@ int drift(int direction,int row,int col){
 }
 int selectRandomdirection(int randomvalue,int direction,int row,int col){
     int value=randomvalue;
-    printf("valor de random es %d\n",randomvalue);
     for (int i=0;i<=3;i++){
         if (existWay(i,row,col) && i!= getOppositeDirection(direction)){
             value--;
-            printf("reduce random %d por direccion %d\n",value,i);
             if (value==0){
                 return i;
             }
@@ -234,31 +253,87 @@ int selectNextMove(Martian* martian){
         return selectRandomdirection(r,martian->currentDirection,row,col);
     }
 }
+int wayIsBlocked(int nextMove, Martian* martian){
+
+    for (int i=0; i<get_size();i++){
+        Martian * martiani= find(i);
+        int row=martian->row;
+        int col=martian->col;
+        if (martian->id!=martiani->id){
+            if (nextMove==UP){
+                row--;
+            } else if(nextMove==DOWN)
+                row++;
+            else if(nextMove==LEFT){
+                col--;
+            } else{
+                col++;
+            }
+
+            if (martiani->row==row && martiani->col==col){
+                if (((martiani->currentDirection==UP || martiani->currentDirection==RIGHT) && (nextMove==UP || nextMove==RIGHT)) ||
+                        ((martiani->currentDirection==DOWN || martiani->currentDirection==LEFT) && (nextMove==DOWN || nextMove==LEFT)) ) {
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+}
 
 void *martian_start(void *arg){
     Martian* martian = (Martian*) arg;
-    while(1){
+    while(finish==0){
+        if (systemType==INTERACTIVE && martian->ready==0){
+            break;
+        }
         pthread_mutex_lock(&mutex);
         if (currentMartian==martian->id){
             int nextMove=selectNextMove(martian);
-            printf("el siguiente movimiento es %d\n",nextMove);
-            martian->currentDirection=nextMove;
-            moveMartian(nextMove,martian);
-            usleep(100000);
+            int lastDirection=martian->currentDirection;
+            if(wayIsBlocked(nextMove,martian)==0) {
+                martian->currentDirection = nextMove;
+                moveMartian(lastDirection, nextMove, martian);
+            }
+            usleep(500000);
         }
         pthread_mutex_unlock(&mutex);
+        if (martian->col==0 && martian->row==5){
+            martian->finish=1;
+            break;
+        }
     }
-    printf("termina el thread #%ld a sumar al contador con valor de: %d\n",(long)arg,counter);
 
 }
+
+
 
 /**
  * Moves martian in a specific direction
  * @param direction 0 UP, 1 DOWN, 2 LEFT, 3 RIGHT
  * @param martian Martian object to move
  */
-void moveMartian(int direction, Martian *martian) {
+
+void moveMartian(int lastdirection,int direction, Martian *martian) {
     int squareLength = 40;
+    if (lastdirection!=direction) {
+        if (direction==RIGHT){
+            martian->changex=0-martian->currentChangex;
+            martian->changey=0-martian->currentChangey;
+        }
+        else if (direction==LEFT){
+            martian->changex=squareLength/2-martian->currentChangex;
+            martian->changey=squareLength/2-martian->currentChangey;
+        }
+        else if (direction==DOWN){
+            martian->changex=squareLength/2-martian->currentChangex;
+            martian->changey=squareLength/2-martian->currentChangey;
+        }
+        else{
+            martian->changex=0-martian->currentChangex;
+            martian->changey=0-martian->currentChangey;
+        }
+    }
     switch (direction) {
         case UP:
             // Up
@@ -297,26 +372,19 @@ void moveMartian(int direction, Martian *martian) {
     }
 }
 
-int setMartians() {
-    printf("Hello, World!\n");
-
-    Martian* martian0=addMartian(0,420,1,2,6,0);
-    Martian* martian1=addMartian(0,420,0,3,8,0);
-    Martian* martian2=addMartian(0,420,1,2,6,0);
-    Martian* martian3=addMartian(0,420,2,2,12,0);
-
-    return 0;
-}
-
 void initialize(){
+    sem_unlink(STARTSEMAPHORE);
     srand(time(NULL));
+    startSemaphore = sem_open(STARTSEMAPHORE, O_CREAT, 0644, 0);
     pthread_mutex_init (&mutex, NULL);
     pthread_mutex_init (&mutexMain, NULL);
     pthread_t mThread;
     pthread_create(&mThread, NULL, mainThread, (void *) 1);
+    pthread_detach(mThread);
 }
 void freedata(){
-    pthread_exit(NULL);
+    sem_close(startSemaphore);
+    sem_unlink(STARTSEMAPHORE);
     pthread_mutex_destroy(&mutex);
     pthread_mutex_destroy(&mutexMain);
 }
@@ -331,6 +399,7 @@ Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arr
     martian->id=countMartians;
     countMartians++;
     martian->ready=1;
+    martian->finish=0;
     martian->currentDirection=3;
     martian->executedtime=0;
     martian->priority=type;
@@ -342,6 +411,10 @@ Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arr
     martian->destX = -1;
     martian->destY = -1;
     martian->movDir = -1;
+    martian->changex=0;
+    martian->changey=0;
+    martian->currentChangex=20;
+    martian->currentChangey=20;
     martian->pBar=NULL;
     pthread_mutex_lock(&mutexMain);
     insert(martian);
@@ -356,7 +429,7 @@ Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arr
 void setPriority(Martian* martian){
     if (systemType==INTERACTIVE) {
         if (scheduler == FCFS) {
-            martian->priority = countMartians;
+            FCFSPriority();
         } else if (scheduler == SRTN) {
             SRTNPriority();
         }

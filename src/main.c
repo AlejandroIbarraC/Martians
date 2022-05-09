@@ -77,7 +77,7 @@ static SDL_Rect backgroundRect;
 Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arrivalTime);
 void buttonAddMartian(GtkWidget* widget, gpointer data);
 void buttonStartStop(GtkWidget* widget, gpointer data);
-void deleteMartian(struct Martian_node *martian) ;
+void deleteMartian(Martian *martian) ;
 void destroy(GtkWidget* widget, gpointer data);
 void destroy_aux();
 static gboolean idle(void *ud);
@@ -337,6 +337,7 @@ void buttonAddMartian(GtkWidget* widget, gpointer data) {
  * Called when button start/stop is clicked
  */
 void buttonStartStop(GtkWidget* widget, gpointer data) {
+    sem_post(startSemaphore);
     running = true;
     printf("Started simulation\n");
 }
@@ -346,36 +347,7 @@ void buttonStartStop(GtkWidget* widget, gpointer data) {
  * Deletes martian
  * @param martian to delete
  */
-void deleteMartian(struct Martian_node *martian) {
-    struct Martian_node* martians=Head;
-    if (martian == martians) {
-        // Delete head of list
-        printf("Here\n");
-        gtk_container_remove((GtkContainer *) pBarVBox, martians->martian->pBar);
-        martians->martian->pBar = NULL;
-        if (martians->next != NULL) {
-            // List has more than 1 item. Can delete head.
-            martians = martians->next;
-        } else {
-            // List only has head. Disable it.
-            martians->martian->x = -100;
-        }
-    } else {
-        // Delete item in the middle or end of list
-        struct Martian_node *tmp = martians;
-        while (tmp->next != NULL) {
-            if (martian == tmp->next) {
-                // tmp has the previous value
-                break;
-            }
-            tmp = tmp->next;
-        }
-        // Reassign pointers
-        tmp->next = martian->next;
-        gtk_container_remove((GtkContainer *) pBarVBox, martian->martian->pBar);
-        free(martian);
-    }
-}
+
 
 
 /**
@@ -386,6 +358,7 @@ void destroy(GtkWidget* widget, gpointer data) {
 }
 
 void destroy_aux() {
+    finish=1;
     // Safe memory exit. Delete stuff
     g_print("Deleting stuff for safe exit\n");
 
@@ -491,10 +464,13 @@ SDL_Texture* loadImage(const char* file, SDL_Renderer* renderer) {
  */
 void onChangeCalInteractive(GtkWidget* widget, gpointer data) {
     if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_cal1)) == TRUE) {
+        scheduler=FCFS;
         printf("FCFS\n");
     } else if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_cal2)) == TRUE) {
+        scheduler=PRIORITY;
         printf("Priority\n");
     } else {
+        scheduler=SRTN;
         printf("SRTN\n");
     }
 }
@@ -505,8 +481,10 @@ void onChangeCalInteractive(GtkWidget* widget, gpointer data) {
  */
 void onChangeCalRTOS(GtkWidget* widget, gpointer data) {
     if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_rtos_cal1)) == TRUE) {
+        mode=EDF;
         printf("EDF\n");
     } else {
+        mode=RM;
         printf("RM\n");
     }
 }
@@ -557,6 +535,7 @@ void renderControlPanelAux() {
         gtk_widget_hide(radio_rtos_cal_hbox);
         gtk_widget_hide(entryPeriod);
         gtk_entry_set_text((GtkEntry *) entryPeriod, "");
+        systemType=INTERACTIVE;
         printf("Interactive\n");
     } else {
         // RTOS
@@ -565,6 +544,7 @@ void renderControlPanelAux() {
         gtk_widget_show(radio_rtos_cal_hbox);
         gtk_widget_show(entryPeriod);
         gtk_entry_set_text((GtkEntry *) entryArrivalTime, "");
+        systemType=RTOS;
         printf("RTOS\n");
     }
 }
@@ -576,12 +556,14 @@ void renderControlPanelAux() {
  */
 void renderMartian(Martian *martian) {
     // Animate movement on loop
+    if (martian->finish==0){
     if (martian->movDir != -1) {
+        int movspeed=2;
         switch (martian->movDir) {
             case 0:
                 // Up
                 if (martian->destY != martian->y) {
-                    martian->y -= 8;
+                    martian->y -= movspeed;
                 } else {
                     martian->destY = -1;
                     martian->movDir = -1;
@@ -590,39 +572,69 @@ void renderMartian(Martian *martian) {
             case 1:
                 // Down
                 if (martian->destY != martian->y) {
-                    martian->y += 8;
+                    martian->y += movspeed;
                 } else {
-                    martian->destY = -1;
+                    martian->destY = 0;
                     martian->movDir = -1;
                 }
                 break;
             case 2:
                 // Left
                 if (martian->destX != martian->x) {
-                    martian->x -= 8;
+                    martian->x -= movspeed;
                 } else {
-                    martian->destX = -1;
+                    martian->destX = 0;
                     martian->movDir = -1;
                 }
                 break;
             case 3:
                 // Right
                 if (martian->destX != martian->x) {
-                    martian->x += 8;
+                    martian->x += movspeed;
                 } else {
-                    martian->destX = -1;
+                    martian->destX = 0;
                     martian->movDir = -1;
                 }
                 break;
         }
     }
+    }
 
     // Calculate SDL variables
     martian->spriteRect = (SDL_Rect){(sprite % 7)*165, 0, 165, 165};
-    martian->rect = (SDL_Rect){martian->x, martian->y, squareLength, squareLength};
+    int cambio=1;
+    if (martian->changex!=0){
+        int var= 1- (martian->changex<0)*2;
+        martian->currentChangex+=var;
+        martian->changex-=var;
+    }
+    if (martian->changey!=0){
+        int var= 1- (martian->changey<0)*2;
+        martian->currentChangey+=var*cambio;
+        martian->changey-=var*cambio;
+    }
+    if (martian->currentDirection==LEFT){
+        martian->rect = (SDL_Rect) {martian->x + squareLength / 4, martian->y,
+                                    squareLength / 2, squareLength/2};
 
+    }
+    else if (martian->currentDirection==RIGHT){
+        martian->rect = (SDL_Rect) {martian->x + squareLength / 4, martian->y + squareLength / 2,
+                                    squareLength / 2, squareLength/2};
+    }
+    else if (martian->currentDirection==DOWN){
+        martian->rect = (SDL_Rect) {martian->x,  martian->y + squareLength / 4,
+                                    squareLength / 2, squareLength/2};
+    }
+    else{
+        martian->rect = (SDL_Rect) {martian->x + squareLength / 2, martian->y+ squareLength / 4,
+                                    squareLength / 2, squareLength/2};
+    }
+
+    martian->rect = (SDL_Rect){martian->x+martian->currentChangex, martian->y+martian->currentChangey,
+                               squareLength/2, squareLength/2};
     // Draw two martians in the same square if logic determines it
-    drawDual();
+   // drawDual();*/
 
     // Set textures
     SDL_Texture *texture = martianSS_green;
@@ -677,3 +689,37 @@ void renderMartian(Martian *martian) {
     // Render stuff
     SDL_RenderCopyEx(sdlRenderer, texture, &martian->spriteRect, &martian->rect, 0, NULL, 0);
 }
+/**
+ * Deletes martian
+ * @param martian to delete
+ */
+/*void deleteMartian(Martian *martian) {
+    struct Martian* martians=Head;
+    if (martian == martians) {
+        // Delete head of list
+        printf("Here\n");
+        gtk_container_remove((GtkContainer *) pBarVBox, martians->martian->pBar);
+        martians->martian->pBar = NULL;
+        if (martians->next != NULL) {
+            // List has more than 1 item. Can delete head.
+            martians = martians->next;
+        } else {
+            // List only has head. Disable it.
+            martians->martian->x = -100;
+        }
+    } else {
+        // Delete item in the middle or end of list
+        struct Martian_node *tmp = martians;
+        while (tmp->next != NULL) {
+            if (martian == tmp->next) {
+                // tmp has the previous value
+                break;
+            }
+            tmp = tmp->next;
+        }        // Reassign pointers
+        tmp->next = martian->next;
+        gtk_container_remove((GtkContainer *) pBarVBox, martian->martian->pBar);
+        free(martian);
+
+    }
+}*/
