@@ -139,7 +139,7 @@ def plot_report(marcianos, tiempos, arribos, nombre_algoritmo):
 
     ax.set_title('Tiempos de llegada de los procesos')
     ax.set_xlabel('Tiempo (s)')
-    ax.set_xlabel('Proceso')
+    ax.set_ylabel('Proceso')
 
     # Se remueve la leyenda
 

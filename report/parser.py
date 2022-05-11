@@ -13,6 +13,8 @@ def parse_timeline():
     df['marciano'] = df.apply(lambda row : str(int(row['marciano'])), axis = 1)
     # Mantiene solo los marcianos con una duracion mayor a 0
     df = df[df['duracion'] > 0]
+    # Obtiene marcianos
+    marcianos = df['marciano'].unique().tolist()
     # Agrega tiempos vacios
     for index, row in df.iterrows():
         if index>0:
@@ -22,7 +24,6 @@ def parse_timeline():
     df = df.sort_index().reset_index(drop=True)
     # Convierte al formato de lista
     timelines = dictionary_to_list(df.to_dict(orient="index"))
-    marcianos = df['marciano'].unique().tolist()
 
     return (timelines, marcianos)
 
