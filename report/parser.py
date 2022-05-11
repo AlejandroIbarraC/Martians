@@ -15,6 +15,7 @@ def parse_timeline():
     df = df[df['duracion'] > 0]
     # Obtiene marcianos
     marcianos = df['marciano'].unique().tolist()
+    marcianos.sort()
     # Agrega tiempos vacios
     for index, row in df.iterrows():
         if index>0:
