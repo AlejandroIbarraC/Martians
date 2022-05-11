@@ -132,6 +132,9 @@ int getNextCurrentMartian(){
 
 void *mainThread(void *arg){
     sem_wait(startSemaphore);
+    char data[STR_LEN];
+    sprintf(data, "%d,%d,%d\n", systemType,scheduler,mode);
+    writeinFile(data,ARCHIVOMARTIANS);
     clock_t  tiempoInicial,tiempoFinal;
     int executedTime=0;
     tiempoInicial = clock();
@@ -221,9 +224,6 @@ void *mainThread(void *arg){
         lastTime=tiempoTotal;
         pthread_mutex_unlock(&mutexMain);
     }
-    char data[STR_LEN];
-    sprintf(data, "%d,%d,%d\n", systemType,scheduler,mode);
-    writeinFile(data,ARCHIVOMARTIANS);
     if (currentMartian!=-1){
         char data2[STR_LEN];
         sprintf(data2, "%d\n", lastTime);
@@ -343,7 +343,6 @@ void *martian_start(void *arg){
     Martian* martian = (Martian*) arg;
     while(finish==0){
         if (systemType==INTERACTIVE && martian->ready==0){
-            martian->finish=1;
             break;
         }
         pthread_mutex_lock(&mutex);
@@ -358,11 +357,14 @@ void *martian_start(void *arg){
         }
         pthread_mutex_unlock(&mutex);
         if (martian->col==0 && martian->row==5){
-            martian->finish=1;
             break;
         }
     }
-
+    martian->timefinished=lastTime;
+    char data[STR_LEN];
+    sprintf(data, "%d,%d,%d,%d,%d,%d\n", martian->id,martian->energy,martian->arrivalTime,martian->period,martian->timeCreated,martian->timefinished);
+    writeinFile(data,ARCHIVOMARTIANS);
+    martian->finish=1;
 }
 
 
@@ -476,9 +478,6 @@ Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arr
     martian->currentChangex=20;
     martian->currentChangey=20;
     martian->pBar=NULL;
-    char data[STR_LEN];
-    sprintf(data, "%d,%d,%d,%d,%d\n", martian->id,martian->energy,martian->arrivalTime,martian->period,martian->timeCreated);
-    writeinFile(data,ARCHIVOMARTIANS);
     pthread_mutex_lock(&mutexMain);
     insert(martian);
     setPriority(martian);

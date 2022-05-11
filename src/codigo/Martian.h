@@ -29,6 +29,7 @@ typedef struct {
     int currentChangey;
     int timeCreated;
     int movDir;
+    int timefinished;
     SDL_Rect spriteRect;
     SDL_Rect rect;
     GtkWidget *pBar;
