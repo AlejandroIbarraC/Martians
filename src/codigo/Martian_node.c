@@ -50,23 +50,6 @@ Martian* findMartianByID(int id){
     }
 }
 
-Martian* deleteMartian(int id){
-    struct Martian_node* tmp = Head;
-    if (Head == NULL) {
-        return NULL;
-    }
-    while (1){
-        if (tmp->next->martian->id==id){
-            tmp->martian;
-        }
-        else if(tmp->next == NULL) {
-            return NULL;
-        }
-        else {
-            tmp = tmp->next;
-        }
-    }
-}
 
 
 int get_size (){
@@ -153,5 +136,41 @@ void FCFSPriority() {
     for (int i=0; i<size;i++){
         findMartianByID(array[i])->priority=i;
         printf("marciano #%d\n", array[i]);
+    }
+}
+
+void removeMartian(Martian *martian) {
+    printf("Size a %d\n",get_size());
+    struct Martian_node* martiaNode = Head;
+    for (int i=0;i < get_size();i++) {
+        if (martiaNode->martian->id==martian->id){
+            break;
+        }
+        else if(martiaNode->next == NULL) {
+            break;
+        }
+        else {
+            martiaNode = martiaNode->next;
+        }
+    }
+    printf("Size b %d\n",get_size());
+    struct Martian_node *martians = Head;
+    if (martian->id== martians->martian->id) {
+            // List has more than 1 item. Can delete head.
+            Head = martians->next;
+         printf("Size e %d\n",get_size());
+
+    } else {
+        // Delete item in the middle or end of list
+        struct Martian_node *tmp = Head;
+        while (tmp->next != NULL) {
+            printf("Size c %d\n",get_size());
+            if (martian->id == tmp->next->martian->id) {
+                tmp->next = tmp->next->next;
+                break;
+            }
+            tmp = tmp->next;
+        }        // Reassign pointers
+        printf("Size final %d\n",get_size());
     }
 }

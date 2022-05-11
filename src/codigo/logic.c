@@ -63,18 +63,47 @@ int systemType = INTERACTIVE;
 int lastTime=0;
 int countMartians=0;
 int finish=0;
+void initializeFile(char* path);
 void updateMartiansToReady(clock_t initialTime, clock_t finalTIme);
 int getNextCurrentMartian();
 Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arrivalTime);
 void setPriority(Martian* martian);
 void moveMartian(int lastdirection,int direction, Martian *martian);
+void writeinFile(char* info,char*path);
+void freedata();
+
+#define ARCHIVOMARTIANS "marcianos.txt"
+#define ARCHIVOTIME "timeline.txt"
+#define STR_LEN 300
+
+void initializeFile(char* path){
+    FILE *file;
+    file = fopen(path, "w");
+    if (file == NULL) {
+        return;
+    }
+    fprintf(file, "");
+    fclose(file);
+}
+
+void writeinFile(char* info,char*path){
+    FILE *file;
+    file = fopen(path, "a+");
+    if (file == NULL) {
+        return;
+    }
+    fprintf(file, info);
+    fclose(file);
+    printf("%s",info);
+}
+
 
 void updateMartiansToReady(clock_t initialTime, clock_t finalTIme) {
     int tiempoTotal;
     for (int i = 0; i < get_size(); i++) {
         Martian *martian = find(i);
         tiempoTotal = (int) (finalTIme - initialTime) / CLOCKS_PER_SEC;
-        if (tiempoTotal % martian->period == 0 && martian->finish==0) {
+        if ((tiempoTotal-martian->timeCreated) % martian->period == 0 && martian->finish==0) {
             if (martian->ready==1 && lastTime!=tiempoTotal){
                 printf("Error no se pudo calendarizar a marciano #%d correctamente, tiempo: %d segundos\n",martian->id, tiempoTotal);
                 finish=1;
@@ -114,10 +143,14 @@ void *mainThread(void *arg){
         if (currentMartian==-1){
             if (systemType==RTOS) {
                 updateMartiansToReady(tiempoInicial,tiempoFinal);
+                lastTime=tiempoTotal;
             }
             int martianid=getNextCurrentMartian();
             if (martianid!=-1) {
                 int time= (int)  (tiempoFinal-tiempoInicial)/CLOCKS_PER_SEC;
+                char data[STR_LEN];
+                sprintf(data, "%d,%d,", martianid,time);
+                writeinFile(data,ARCHIVOTIME);
                 printf("entra marciano #%d a los %d segundos\n", martianid, time);
                 currentMartian = martianid;
                 executedTime = tiempoTotal;
@@ -131,18 +164,25 @@ void *mainThread(void *arg){
                 martian->energy=martian->executiontime-martianExecutedTime;
                 if (martianExecutedTime>= martian->executiontime || martian->finish==1){
                     tiempoTotal = (int) (tiempoFinal-tiempoInicial)/CLOCKS_PER_SEC;
+                    char data[STR_LEN];
+                    sprintf(data, "%d\n",tiempoTotal);
+                    writeinFile(data,ARCHIVOTIME);
                     printf("marciano #%d ejecutado %d segundos\n", currentMartian, martianExecutedTime);
                     printf("sale marciano #%d a los %d segundos\n", currentMartian, tiempoTotal);
                     currentMartian=-1;
                     martian->executedtime=0;
                     martian->energy=0;
                     martian->ready=0;
+
                     if (systemType==RTOS) {
                         updateMartiansToReady(tiempoInicial,tiempoFinal);
+                        lastTime=tiempoTotal;
                     }
                     int martianid=getNextCurrentMartian();
                     if (martianid!=-1) {
                         int time= (int)  (tiempoFinal-tiempoInicial)/CLOCKS_PER_SEC;
+                        sprintf(data, "%d,%d,", martianid,time);
+                        writeinFile(data,ARCHIVOTIME);
                         printf("entra marciano #%d a los %d segundos\n", martianid, time);
                         currentMartian = martianid;
                         executedTime = tiempoTotal;
@@ -151,6 +191,7 @@ void *mainThread(void *arg){
                 if (((systemType==RTOS && mode==RM) || systemType==INTERACTIVE)  && currentMartian!=-1){
                     if (systemType==RTOS) {
                         updateMartiansToReady(tiempoInicial,tiempoFinal);
+                        lastTime=tiempoTotal;
                     }
                     int martianid=getNextCurrentMartian();
                     if (martianid!=-1 && martianid!=currentMartian) {
@@ -158,8 +199,13 @@ void *mainThread(void *arg){
                         time= tiempoTotal-executedTime;
                         martian->executedtime+=time;
                         martian->energy=martian->executiontime-martian->executedtime;
+                        char data[STR_LEN];
+                        sprintf(data, "%d\n",tiempoTotal);
+                        writeinFile(data,ARCHIVOTIME);
                         printf("marciano #%d ejecutado %d segundos para un total de %d segundos\n", currentMartian, time ,martian->executedtime);
-
+                        char data2[STR_LEN];
+                        sprintf(data2, "%d,%d,", currentMartian,tiempoTotal);
+                        writeinFile(data2,ARCHIVOTIME);
                         printf("interrupcion de marciano #%d a el marciano activo #%d a los %d segundos\n", martianid, currentMartian ,tiempoTotal);
                         currentMartian = martianid;
                         executedTime = tiempoTotal;
@@ -173,6 +219,16 @@ void *mainThread(void *arg){
         lastTime=tiempoTotal;
         pthread_mutex_unlock(&mutexMain);
     }
+    char data[STR_LEN];
+    sprintf(data, "%d,%d,%d\n", systemType,scheduler,mode);
+    writeinFile(data,ARCHIVOMARTIANS);
+    if (currentMartian!=-1){
+        char data2[STR_LEN];
+        sprintf(data2, "%d\n", lastTime);
+        writeinFile(data2,ARCHIVOTIME);
+    }
+    freedata();
+    system("pip3 report/report.py");
 }
 
 int countWays(int row, int col){
@@ -285,6 +341,7 @@ void *martian_start(void *arg){
     Martian* martian = (Martian*) arg;
     while(finish==0){
         if (systemType==INTERACTIVE && martian->ready==0){
+            martian->finish=1;
             break;
         }
         pthread_mutex_lock(&mutex);
@@ -407,6 +464,7 @@ Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arr
     martian->energy = totalEnergy;
     martian->executiontime = totalEnergy;
     martian->period = period;
+    martian->timeCreated=lastTime;
     martian->arrivalTime = arrivalTime;
     martian->destX = -1;
     martian->destY = -1;
@@ -416,6 +474,9 @@ Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arr
     martian->currentChangex=20;
     martian->currentChangey=20;
     martian->pBar=NULL;
+    char data[STR_LEN];
+    sprintf(data, "%d,%d,%d,%d,%d\n", martian->id,martian->energy,martian->arrivalTime,martian->period,martian->timeCreated);
+    writeinFile(data,ARCHIVOMARTIANS);
     pthread_mutex_lock(&mutexMain);
     insert(martian);
     setPriority(martian);

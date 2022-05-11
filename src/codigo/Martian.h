@@ -27,6 +27,7 @@ typedef struct {
     int changey;
     int currentChangex;
     int currentChangey;
+    int timeCreated;
     int movDir;
     SDL_Rect spriteRect;
     SDL_Rect rect;

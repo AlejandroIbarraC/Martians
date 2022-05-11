@@ -22,5 +22,6 @@ Martian* findMartianByID(int id);
 void RTOSPriority();
 void SRTNPriority();
 void FCFSPriority();
+void removeMartian(Martian *martian);
 
 #endif //Martian_NODE_H
