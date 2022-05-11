@@ -58,3 +58,7 @@ cmake-build-debug/
 src/main
 
 src/marcianos.txt
+
+.vscode/
+
+report/__pycache__/

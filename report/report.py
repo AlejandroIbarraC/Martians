@@ -1,10 +1,12 @@
 import random
 import matplotlib.pyplot as plt
+import matplotlib.ticker as plticker
 import pandas as pd
 import numpy as np
 
+number_of_grid_lines = 30 
 
-def plot_report(marcianos, tiempos, arribos):
+def plot_report(marcianos, tiempos, arribos, nombre_algoritmo):
     ## Ploteo de ejecucion de procesos
 
     # Random de colores
@@ -51,7 +53,7 @@ def plot_report(marcianos, tiempos, arribos):
                 va='center')
         
     # Se agregan los labels de x,y
-    Class = ["Ejecucion"]
+    Class = [nombre_algoritmo]
     ax.set_yticklabels(Class,rotation='horizontal')
 
     ax.set_title('Tiempos de ejecucion de los procesos')
@@ -63,8 +65,9 @@ def plot_report(marcianos, tiempos, arribos):
 
     # Se agregan las lineas de grid
 
-    #ax.xticks(ticks=np.round(np.linspace(0, maximo, 15)))
+    ax.set_xticks(ticks=np.round(np.linspace(0, maximo, number_of_grid_lines)))
     ax.grid(axis = 'x', color = 'gray', linestyle = '--', linewidth = 1)
+    plt.xlim((0,maximo))
 
 
     ####################################################################################################################3
@@ -144,8 +147,16 @@ def plot_report(marcianos, tiempos, arribos):
 
     # Se agregan las lineas de grid
 
-    #ax.xticks(ticks=np.round(np.linspace(0, maximo, 15)))
+    ax.set_xticks(ticks=np.round(np.linspace(0, maximo, number_of_grid_lines)))
     ax.grid(axis = 'x', color = 'gray', linestyle = '--', linewidth = 1)
+    plt.xlim((0,maximo))
 
     # Se muestra el grafico
+    figManager = plt.get_current_fig_manager()
+    figManager.window.showMaximized()
+    figManager.canvas.set_window_title('Reporte')
     plt.show()
+
+
+
+
