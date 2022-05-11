@@ -27,14 +27,39 @@ def parse_timeline():
 
     return (timelines, marcianos)
 
-# TODO: Que se hace con el periodo?
 def parse_marcianos():
-    df = pd.read_csv("src/marcianos.txt", header=None, names=["marciano", "duracion", "arribo", "periodo", "creacion"])
+    df = pd.read_csv("src/marcianos.txt", header=None, names=["marciano", "duracion", "arribo", "periodo", "creacion", "fin"])
+    mode = df.iloc[0][0]
+    algoritmo_interactivo = df.iloc[0][1]
+    algoritmo_rtos = df.iloc[0][2]
     df['marciano'] = df.apply(lambda row : str(int(row['marciano'])), axis = 1)
     df['vacio'] = df.apply(lambda row : False, axis = 1)
-    mode = df.iloc[-1][0]
-    df.drop(df.tail(1).index,inplace=True)
+    df.drop(0,inplace=True)
+    # Si es RTOS, agrega repeticiones
+    if mode == 1:
+        for index, row in df.iterrows():
+            periodo = row['periodo']
+            ultimoArribo = row['arribo']
+            finalizacion = row['fin']
+            while finalizacion > ultimoArribo+periodo:
+                df.loc[df.index.max() + 1] = row['marciano'], row['duracion'], ultimoArribo+periodo,0,0,0,0
+                ultimoArribo+=periodo
     arribos = dictionary_to_list(df.to_dict(orient="index"))
-    return (arribos, "algoritmo")
+
+    # Se obtiene el algoritmo
+    if mode == 2:
+        if algoritmo_interactivo == 1:
+            algoritmo = "FCFS"
+        elif algoritmo_interactivo == 2:
+            algoritmo = "PRIORITY"
+        else:
+            algoritmo = "SRTN"
+    else:
+        if algoritmo_rtos == 1:
+            algoritmo = "EDF"
+        else:
+            algoritmo = "RM"
+
+    return (arribos, algoritmo)
 
 
