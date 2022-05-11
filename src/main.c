@@ -719,4 +719,5 @@ void deleteMartian(Martian *martian) {
     martian->pBar = NULL;
     removeMartian(martian);
     printf("eliminado\n");
+    free(martian);
 }

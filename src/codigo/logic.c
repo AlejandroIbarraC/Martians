@@ -115,14 +115,16 @@ void updateMartiansToReady(clock_t initialTime, clock_t finalTIme) {
 }
 
 int getNextCurrentMartian(){
-    int listSize= get_size();
     int martianid=-1;
     int currentPriority=INT_MAX;
-    for (int i=0; i<listSize; i++){
+    for (int i=0; i<get_size(); i++){
         Martian* martian=find(i);
-        if (martian->ready==1 && martian->finish==0 && martian->priority<=currentPriority && (systemType!=INTERACTIVE || martian->arrivalTime<=lastTime)){
-            martianid=martian->id;
-            currentPriority=martian->priority;
+        if (martian!=NULL) {
+            if (martian->ready == 1 && martian->finish == 0 && martian->priority <= currentPriority &&
+                (systemType != INTERACTIVE || martian->arrivalTime <= lastTime)) {
+                martianid = martian->id;
+                currentPriority = martian->priority;
+            }
         }
     }
     return martianid;

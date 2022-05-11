@@ -1,18 +1,16 @@
-//
-// Created by Gaming on 14/6/2020.
-//
+
 
 #include "Martian_node.h"
 #include <stdio.h>
 void insert(Martian* Martian){
     struct Martian_node* tmp = (struct Martian_node *) malloc(sizeof(struct Martian_node));
+    if (get_size()==0){
+        Head=NULL;
+    }
     tmp->martian = Martian;
     tmp->next = Head;
     Head = tmp;
 }
-
-
-
 
 // encuentra el puntero a un index de la lista
 // entradas:
@@ -77,7 +75,7 @@ void RTOSPriority() {
     int size= get_size();
     int array [size];
     for (int i=0; i<size;i++){
-        array[i]=i;
+        array[i]=find(i)->id;
     }
     for (int step = 0; step < size - 1; ++step) {
         for (int i = 0; i < size - step - 1; ++i) {
@@ -99,7 +97,7 @@ void SRTNPriority() {
     int size= get_size();
     int array [size];
     for (int i=0; i<size;i++){
-        array[i]=i;
+        array[i]=find(i)->id;
     }
     for (int step = 0; step < size - 1; ++step) {
         for (int i = 0; i < size - step - 1; ++i) {
@@ -121,7 +119,7 @@ void FCFSPriority() {
     int size= get_size();
     int array [size];
     for (int i=0; i<size;i++){
-        array[i]=i;
+        array[i]=find(i)->id;
     }
     for (int step = 0; step < size - 1; ++step) {
         for (int i = 0; i < size - step - 1; ++i) {
@@ -133,7 +131,7 @@ void FCFSPriority() {
         }
     }
     printf("orden: \n");
-    for (int i=0; i<size;i++){
+    for (int i=0; i<get_size();i++){
         findMartianByID(array[i])->priority=i;
         printf("marciano #%d\n", array[i]);
     }
@@ -153,24 +151,22 @@ void removeMartian(Martian *martian) {
             martiaNode = martiaNode->next;
         }
     }
-    printf("Size b %d\n",get_size());
+
     struct Martian_node *martians = Head;
     if (martian->id== martians->martian->id) {
             // List has more than 1 item. Can delete head.
             Head = martians->next;
-         printf("Size e %d\n",get_size());
+
 
     } else {
-        // Delete item in the middle or end of list
         struct Martian_node *tmp = Head;
         while (tmp->next != NULL) {
-            printf("Size c %d\n",get_size());
+
             if (martian->id == tmp->next->martian->id) {
                 tmp->next = tmp->next->next;
                 break;
             }
             tmp = tmp->next;
-        }        // Reassign pointers
-        printf("Size final %d\n",get_size());
+        }
     }
 }
