@@ -19,7 +19,7 @@ static const int height = 840;
 static const int sdl_width = 840;
 static const int squareLength = 40;
 static const int FPS = 60;
-static const int martianLimit = 18;
+static const int martianLimit = 15;
 #define AUTO 0
 #define MANUAL 1
 
@@ -34,11 +34,16 @@ static GtkWindow *gtkWindow;
 static GtkWidget *gtkHbox;
 static GtkWidget *gtkDA;
 
+static GtkWidget *gtkButtonStartStop;
+static GtkWidget *gtkButtonAddMartian;
+
 static GtkWidget *radio_sim_type1;
 static GtkWidget *radio_sim_type2;
+static GtkWidget *sim_type_hbox;
 
 static GtkWidget *radio_os1;
 static GtkWidget *radio_os2;
+static GtkWidget *radio_os_hbox;
 
 static GtkWidget *radio_cal1;
 static GtkWidget *radio_cal2;
@@ -58,6 +63,8 @@ static GtkWidget *entryEnergy;
 static GtkWidget *entryPeriod;
 static GtkWidget *entryArrivalTime;
 
+static GtkWidget *time_value_label;
+
 static GtkWidget *pBarVBox;
 static void *gdk_window;
 static void *window_id;
@@ -65,6 +72,7 @@ static void *window_id;
 // Control variables
 static int sprite = 0;
 static int f_time = 0;
+static int mCount = 0;
 static bool running = false;
 
 // SDL variables
@@ -73,8 +81,6 @@ static SDL_Texture *martianSS_green;
 static SDL_Texture *martianSS_blue;
 static SDL_Texture *martianSS_red;
 static SDL_Rect backgroundRect;
-
-
 
 // Function declaration
 Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arrivalTime);
@@ -122,7 +128,7 @@ int main(int argc, char** argv) {
     radio_sim_type1 = gtk_radio_button_new_with_label(NULL, "Manual");
     radio_sim_type2 = gtk_radio_button_new_with_label(NULL, "Auto");
     gtk_radio_button_join_group((GtkRadioButton *) radio_sim_type2, (GtkRadioButton *) radio_sim_type1);
-    GtkWidget *sim_type_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    sim_type_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 
     gtk_box_pack_start(GTK_BOX(sim_type_hbox), sim_type_label, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(sim_type_hbox), radio_sim_type1, FALSE, FALSE, 0);
@@ -135,7 +141,7 @@ int main(int argc, char** argv) {
     radio_os1 = gtk_radio_button_new_with_label(NULL, "Interactive");
     radio_os2 = gtk_radio_button_new_with_label(NULL, "RTOS");
     gtk_radio_button_join_group((GtkRadioButton *) radio_os2, (GtkRadioButton *) radio_os1);
-    GtkWidget *radio_os_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    radio_os_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 
     gtk_box_pack_start(GTK_BOX(radio_os_hbox), os_label, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(radio_os_hbox), radio_os1, FALSE, FALSE, 0);
@@ -144,7 +150,7 @@ int main(int argc, char** argv) {
     g_signal_connect(radio_os1, "clicked", G_CALLBACK(renderControlPanel), "button");
 
     // Calendarizer radio selectors
-    GtkWidget *cal_label = gtk_label_new("Calendarization:");
+    GtkWidget *cal_label = gtk_label_new("Scheduling:");
     radio_cal1 = gtk_radio_button_new_with_label(NULL, "FCFS");
     radio_cal2 = gtk_radio_button_new_with_label(NULL, "Priority");
     radio_cal3 = gtk_radio_button_new_with_label(NULL, "SRTN");
@@ -160,7 +166,7 @@ int main(int argc, char** argv) {
     g_signal_connect(radio_cal1, "clicked", G_CALLBACK(onChangeCalInteractive), "button");
 
     // RTOS
-    GtkWidget *cal_label_rtos = gtk_label_new("Calendarization:");
+    GtkWidget *cal_label_rtos = gtk_label_new("Scheduling:");
     radio_rtos_cal1 = gtk_radio_button_new_with_label(NULL, "EDF");
     radio_rtos_cal2 = gtk_radio_button_new_with_label(NULL, "RM");
     gtk_radio_button_join_group((GtkRadioButton *) radio_rtos_cal2, (GtkRadioButton *) radio_rtos_cal1);
@@ -187,8 +193,16 @@ int main(int argc, char** argv) {
     gtk_box_pack_start(GTK_BOX(radio_color_hbox), radio_red, FALSE, FALSE, 0);
 
     // Buttons
-    GtkWidget *gtkButtonAddMartian = gtk_button_new_with_label ("Add Martian");
-    GtkWidget *gtkButtonStartStop = gtk_button_new_with_label ("Start");
+    gtkButtonAddMartian = gtk_button_new_with_label ("Add Martian");
+    gtkButtonStartStop = gtk_button_new_with_label ("Start");
+
+    // Time stuff
+    GtkWidget *time_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    GtkWidget *time_label = gtk_label_new("Time (s) :");
+    time_value_label = gtk_label_new("0");
+
+    gtk_box_pack_start (GTK_BOX(time_hbox), time_label, TRUE, TRUE, 0);
+    gtk_box_pack_start (GTK_BOX(time_hbox), time_value_label, TRUE, TRUE, 0);
 
     // Progress bar stuff
     GtkWidget *pBar_label = gtk_label_new("Energy bars:");
@@ -224,6 +238,7 @@ int main(int argc, char** argv) {
     gtk_box_pack_start(GTK_BOX(controlPanel), radio_color_hbox, FALSE, FALSE, 10);
     gtk_box_pack_start (GTK_BOX(controlPanel), gtkButtonAddMartian, FALSE, FALSE, 10);
     gtk_box_pack_start (GTK_BOX(controlPanel), gtkButtonStartStop, FALSE, FALSE, 10);
+    gtk_box_pack_start (GTK_BOX(controlPanel), time_hbox, FALSE, FALSE, 10);
     gtk_box_pack_start (GTK_BOX(controlPanel), pBar_label, FALSE, FALSE, 10);
     gtk_box_pack_start (GTK_BOX(controlPanel), pBarVBox, FALSE, FALSE, 10);
 
@@ -252,7 +267,6 @@ int main(int argc, char** argv) {
 
     // Start GTK
     gtk_main();
-
 
     return 0;
 }
@@ -315,21 +329,24 @@ void buttonAddMartian(GtkWidget* widget, gpointer data) {
     // Check clear status
     if (clear) {
         // Check that martian limit hasn't been reached
+        if (mCount <= martianLimit) {
+            // All clear to create martian
+            printf("Energy %d, Period %d, Arrival time %d\n", totalEnergy, period, arrivalTime);
+            Martian *martian = addMartian(0, squareLength * 11, type, totalEnergy, period, arrivalTime);
 
+            // Draw energy progress bar
+            GtkWidget *pBar = gtk_progress_bar_new();
+            gtk_progress_bar_set_show_text((GtkProgressBar *) pBar, TRUE);
+            martian->pBar = pBar;
 
-        // All clear to create martian
-        printf("Energy %d, Period %d, Arrival time %d\n", totalEnergy, period, arrivalTime);
-        Martian *martian = addMartian(0, squareLength * 11, type, totalEnergy, period, arrivalTime);
+            gtk_box_pack_start(GTK_BOX(pBarVBox), pBar, FALSE, FALSE, 0);
+            renderControlPanelAux();
 
-        // Draw energy progress bar
-        GtkWidget *pBar = gtk_progress_bar_new();
-        gtk_progress_bar_set_show_text((GtkProgressBar *) pBar, TRUE);
-        martian->pBar = pBar;
-
-        gtk_box_pack_start(GTK_BOX(pBarVBox), pBar, FALSE, FALSE, 0);
-        renderControlPanelAux();
-
-        printf("Added martian type %d\n", type);
+            mCount++;
+            printf("Added martian type %d\n", type);
+        } else {
+            printf("Martian limit reached. Couldn't create new one\n");
+        }
     } else {
         // Error introducing data
         printf("Error with introducing data\n");
@@ -341,17 +358,24 @@ void buttonAddMartian(GtkWidget* widget, gpointer data) {
  * Called when button start/stop is clicked
  */
 void buttonStartStop(GtkWidget* widget, gpointer data) {
+    // Disable UI controls
+    gtk_widget_set_sensitive(radio_os_hbox, FALSE);
+    gtk_widget_set_sensitive(sim_type_hbox, FALSE);
+    gtk_widget_set_sensitive(gtkButtonStartStop, FALSE);
+
+    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_os1)) == TRUE) {
+        // Interactive
+        gtk_widget_set_sensitive(radio_cal_hbox, FALSE);
+    } else {
+        // RTOS
+        gtk_widget_set_sensitive(radio_rtos_cal_hbox, FALSE);
+    }
+
+    // Call logic to start
     sem_post(startSemaphore);
     running = true;
     printf("Started simulation\n");
 }
-
-
-/**
- * Deletes martian
- * @param martian to delete
- */
-
 
 
 /**
@@ -389,7 +413,7 @@ static gboolean idle(void *ud) {
     if (get_size()==0 && simType==AUTO && running==true){
         destroy_aux();
     } else if (finish==1){
-        //aqui va la alerta
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Schedule error!", "ERROR: Could not schedule martians", NULL);
         destroy_aux();
     }
     else {
@@ -424,7 +448,6 @@ static gboolean idle(void *ud) {
             SDL_RenderCopy(sdlRenderer, background, NULL, &backgroundRect);
 
             // Update every martian
-
             for (int i = 0; i < get_size(); i++) {
                 Martian *martian = find(i);
                 if (martian->finish == 1) {
@@ -436,6 +459,9 @@ static gboolean idle(void *ud) {
 
             // Render stuff
             SDL_RenderPresent(sdlRenderer);
+
+            // Update time label
+            gtk_label_set_text((GtkLabel *) time_value_label, "Hola");
 
             // Handle frame on loop
             f_time++;
@@ -514,9 +540,37 @@ void onChangeSimType(GtkWidget* widget, gpointer data) {
     if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_sim_type1)) == TRUE) {
         simType=MANUAL;
         printf("manual\n");
+        gtk_widget_set_sensitive(radio_os_hbox, TRUE);
+        gtk_widget_set_sensitive(entryEnergy, TRUE);
+        gtk_widget_set_sensitive(radio_color_hbox, TRUE);
+        gtk_widget_set_sensitive(gtkButtonAddMartian, TRUE);
+
+        if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_os1)) == TRUE) {
+            // Interactive
+            gtk_widget_set_sensitive(radio_cal_hbox, TRUE);
+            gtk_widget_set_sensitive(entryArrivalTime, TRUE);
+        } else {
+            // RTOS
+            gtk_widget_set_sensitive(radio_rtos_cal_hbox, TRUE);
+            gtk_widget_set_sensitive(entryPeriod, TRUE);
+        }
     } else {
         simType=AUTO;
         printf("auto\n");
+        gtk_widget_set_sensitive(radio_os_hbox, FALSE);
+        gtk_widget_set_sensitive(entryEnergy, FALSE);
+        gtk_widget_set_sensitive(radio_color_hbox, FALSE);
+        gtk_widget_set_sensitive(gtkButtonAddMartian, FALSE);
+
+        if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_os1)) == TRUE) {
+            // Interactive
+            gtk_widget_set_sensitive(radio_cal_hbox, FALSE);
+            gtk_widget_set_sensitive(entryArrivalTime, FALSE);
+        } else {
+            // RTOS
+            gtk_widget_set_sensitive(radio_rtos_cal_hbox, FALSE);
+            gtk_widget_set_sensitive(entryPeriod, FALSE);
+        }
     }
 }
 
@@ -720,4 +774,5 @@ void deleteMartian(Martian *martian) {
     removeMartian(martian);
     printf("eliminado\n");
     free(martian);
+    mCount--;
 }
