@@ -132,9 +132,9 @@ int getNextCurrentMartian(){
 
 void *mainThread(void *arg){
     sem_wait(startSemaphore);
-    char data[STR_LEN];
-    sprintf(data, "%d,%d,%d\n", systemType,scheduler,mode);
-    writeinFile(data,ARCHIVOMARTIANS);
+    char modedata[STR_LEN];
+    sprintf(modedata, "%d,%d,%d\n", systemType,scheduler,mode);
+    writeinFile(modedata,ARCHIVOMARTIANS);
     clock_t  tiempoInicial,tiempoFinal;
     int executedTime=0;
     tiempoInicial = clock();
