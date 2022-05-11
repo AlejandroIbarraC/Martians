@@ -56,3 +56,5 @@ cmake-build-debug/
 .idea/
 
 src/main
+
+src/marcianos.txt

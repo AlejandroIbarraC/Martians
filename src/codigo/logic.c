@@ -228,7 +228,7 @@ void *mainThread(void *arg){
         writeinFile(data2,ARCHIVOTIME);
     }
     freedata();
-    system("pip3 report/report.py");
+    system("python3 ../report/report.py");
 }
 
 int countWays(int row, int col){
