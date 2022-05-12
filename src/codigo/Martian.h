@@ -16,6 +16,7 @@ typedef struct {
     int energy;
     int executedtime;
     int executiontime;//totalEnergy
+    int currentExecutedTime;
     int period;
     int ready;
     int arrivalTime;

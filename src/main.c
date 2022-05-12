@@ -642,7 +642,7 @@ void renderControlPanelAux() {
 
 
 /**
- * Renders martian on SDL UI
+ * Renders martian on SDL UIZ
  * @param martian to render
  */
 void renderMartian(Martian *martian) {
@@ -789,7 +789,9 @@ void deleteMartian(Martian *martian) {
     printf("eliminar marciano\n");
     gtk_container_remove((GtkContainer *) pBarVBox, martian->pBar);
     martian->pBar = NULL;
+    pthread_mutex_lock(&mutexMain);
     removeMartian(martian);
+    pthread_mutex_unlock(&mutexMain);
     printf("eliminado\n");
     free(martian);
     mCount--;

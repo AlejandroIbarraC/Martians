@@ -147,6 +147,7 @@ void *mainThread(void *arg){
 
         tiempoTotal= (int)  (tiempoFinal-tiempoInicial)/CLOCKS_PER_SEC;
 
+
         if (currentMartian==-1){
             if (systemType==RTOS) {
                 updateMartiansToReady(tiempoInicial,tiempoFinal);
@@ -169,6 +170,10 @@ void *mainThread(void *arg){
                 int time= tiempoTotal-executedTime;
                 int martianExecutedTime=martian->executedtime+time;
                 martian->energy=martian->executiontime-martianExecutedTime;
+                martian->currentExecutedTime=martianExecutedTime;
+                if (systemType==INTERACTIVE && scheduler==SRTN){
+                    SRTNPriority();
+                }
                 if (martianExecutedTime>= martian->executiontime || martian->finish==1){
                     tiempoTotal = (int) (tiempoFinal-tiempoInicial)/CLOCKS_PER_SEC;
                     char data[STR_LEN];
@@ -494,6 +499,7 @@ Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arr
     martian->changey=0;
     martian->currentChangex=20;
     martian->currentChangey=20;
+    martian->currentExecutedTime=0;
     martian->pBar=NULL;
     pthread_mutex_lock(&mutexMain);
     insert(martian);
