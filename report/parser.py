@@ -7,7 +7,7 @@ def dictionary_to_list(dic):
     return list
 
 def parse_timeline():
-    df = pd.read_csv("src/timeline.txt", header=None, names=["marciano", "inicio", "fin"])
+    df = pd.read_csv("timeline.txt", header=None, names=["marciano", "inicio", "fin"])
 
     df['duracion'] = df.apply(lambda row : row['fin']-row['inicio'], axis = 1)
     df['marciano'] = df.apply(lambda row : str(int(row['marciano'])), axis = 1)
@@ -32,7 +32,7 @@ def parse_timeline():
     return (timelines, marcianos)
 
 def parse_marcianos():
-    df = pd.read_csv("src/marcianos.txt", header=None, names=["marciano", "duracion", "arribo", "periodo", "creacion", "fin"])
+    df = pd.read_csv("marcianos.txt", header=None, names=["marciano", "duracion", "arribo", "periodo", "creacion", "fin"])
     mode = df.iloc[0][0]
     algoritmo_interactivo = df.iloc[0][1]
     algoritmo_rtos = df.iloc[0][2]

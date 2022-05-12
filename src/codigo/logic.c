@@ -55,13 +55,15 @@ int laberinto[21][22]={
 sem_t* startSemaphore;
 pthread_mutex_t mutex;
 pthread_mutex_t mutexMain;
-
+pthread_mutex_t mutexFinal;
+pthread_mutex_t mutexFinalMain;
 int currentMartian=-1;
 int mode=EDF;
 int scheduler=FCFS;
 int systemType = INTERACTIVE;
 int lastTime=0;
 int countMartians=0;
+int threadsFinishCount=0;
 int finish=0;
 void initializeFile(char* path);
 void updateMartiansToReady(clock_t initialTime, clock_t finalTIme);
@@ -224,13 +226,17 @@ void *mainThread(void *arg){
         lastTime=tiempoTotal;
         pthread_mutex_unlock(&mutexMain);
     }
+    printf("es el final\n");
+    pthread_mutex_lock(&mutexFinalMain);
     if (currentMartian!=-1){
         char data2[STR_LEN];
         sprintf(data2, "%d\n", lastTime);
         writeinFile(data2,ARCHIVOTIME);
     }
-    freedata();
-    system("python3 ../report/report.py");
+
+    system("python3 ../report/main.py");
+    pthread_mutex_unlock(&mutexFinalMain);
+    pthread_mutex_unlock(&mutexFinal);
 }
 
 int countWays(int row, int col){
@@ -360,11 +366,18 @@ void *martian_start(void *arg){
             break;
         }
     }
+    printf("son nuestros finales\n");
+    pthread_mutex_lock(&mutex);
     martian->timefinished=lastTime;
     char data[STR_LEN];
-    sprintf(data, "%d,%d,%d,%d,%d,%d\n", martian->id,martian->energy,martian->arrivalTime,martian->period,martian->timeCreated,martian->timefinished);
+    sprintf(data, "%d,%d,%d,%d,%d,%d\n", martian->id,martian->executiontime,martian->arrivalTime,martian->period,martian->timeCreated,martian->timefinished);
     writeinFile(data,ARCHIVOMARTIANS);
     martian->finish=1;
+    threadsFinishCount--;
+    if (threadsFinishCount==0 && finish==1){
+        pthread_mutex_unlock(&mutexFinalMain);
+    }
+    pthread_mutex_unlock(&mutex);
 }
 
 
@@ -439,6 +452,9 @@ void initialize(){
     startSemaphore = sem_open(STARTSEMAPHORE, O_CREAT, 0644, 0);
     pthread_mutex_init (&mutex, NULL);
     pthread_mutex_init (&mutexMain, NULL);
+    pthread_mutex_init (&mutexFinal, NULL);
+    pthread_mutex_lock(&mutexFinal);
+    pthread_mutex_lock(&mutexFinalMain);
     pthread_t mThread;
     pthread_create(&mThread, NULL, mainThread, (void *) 1);
     pthread_detach(mThread);
@@ -448,6 +464,8 @@ void freedata(){
     sem_unlink(STARTSEMAPHORE);
     pthread_mutex_destroy(&mutex);
     pthread_mutex_destroy(&mutexMain);
+    pthread_mutex_destroy(&mutexFinal);
+    pthread_mutex_destroy(&mutexFinalMain);
 }
 
 Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arrivalTime) {
@@ -485,6 +503,7 @@ Martian* addMartian(int x, int y, int type, int totalEnergy, int period, int arr
     pthread_t martianThread;
     pthread_create(&martianThread,NULL,martian_start,(void*)martian);
     pthread_detach(martianThread);
+    threadsFinishCount++;
     return martian;
 }
 

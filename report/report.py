@@ -153,7 +153,6 @@ def plot_report(marcianos, tiempos, arribos, nombre_algoritmo):
 
     # Se muestra el grafico
     figManager = plt.get_current_fig_manager()
-    figManager.window.showMaximized()
     figManager.canvas.set_window_title('Reporte')
     plt.show()
 
