@@ -13,9 +13,6 @@ def parse_timeline():
     df['marciano'] = df.apply(lambda row : str(int(row['marciano'])), axis = 1)
     # Mantiene solo los marcianos con una duracion mayor a 0
     df = df[df['duracion'] > 0]
-    # Obtiene marcianos
-    marcianos = df['marciano'].unique().tolist()
-    marcianos.sort()
     # Agrega tiempos vacios
     for index, row in df.iterrows():
         if index>0:
@@ -29,7 +26,7 @@ def parse_timeline():
     # Convierte al formato de lista
     timelines = dictionary_to_list(df.to_dict(orient="index"))
 
-    return (timelines, marcianos)
+    return timelines
 
 def parse_marcianos():
     df = pd.read_csv("marcianos.txt", header=None, names=["marciano", "duracion", "arribo", "periodo", "creacion", "fin"])
@@ -39,6 +36,10 @@ def parse_marcianos():
     df['marciano'] = df.apply(lambda row : str(int(row['marciano'])), axis = 1)
     df['vacio'] = df.apply(lambda row : False, axis = 1)
     df.drop(0,inplace=True)
+    # Obtiene marcianos
+    marcianos = df['marciano'].unique().tolist()
+    marcianos.sort()
+
     # Si es RTOS, creacion es arribo
     if mode == 1:
         df['arribo'] = df['creacion']
@@ -67,6 +68,6 @@ def parse_marcianos():
         else:
             algoritmo = "RM"
 
-    return (arribos, algoritmo)
+    return (arribos, algoritmo, marcianos)
 
 
