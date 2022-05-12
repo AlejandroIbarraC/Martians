@@ -296,14 +296,14 @@ void buttonAddMartian(GtkWidget* widget, gpointer data) {
 
     // Variable verification
     bool clear = false;
-    if (totalEnergy <= 0 || totalEnergy > 100) {
+    if (totalEnergy <= 0) {
         printf("Energy error\n");
     } else {
         gtk_entry_set_text((GtkEntry *) entryEnergy, "");
         if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_os2)) == TRUE) {
             // RTOS
             period = (int) strtol(entryPeriodText, NULL, 10);
-            if (period <= 0 || period > 100) {
+            if (period <= 0) {
                 // Error
                 printf("Period error\n");
             } else {
@@ -315,7 +315,7 @@ void buttonAddMartian(GtkWidget* widget, gpointer data) {
         } else {
             // Interactive
             arrivalTime = (int) strtol(entryArrivalTimeText, NULL, 10);
-            if (arrivalTime < 0 || arrivalTime > 100) {
+            if (arrivalTime < lastTime) {
                 printf("Arrival time error\n");
             } else {
                 // Arrival time is correct. Default period to 1;
