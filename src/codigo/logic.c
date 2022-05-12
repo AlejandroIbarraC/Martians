@@ -96,7 +96,7 @@ void writeinFile(char* info,char*path){
     }
     fprintf(file, info);
     fclose(file);
-    printf("%s",info);
+
 }
 
 
@@ -226,7 +226,6 @@ void *mainThread(void *arg){
         lastTime=tiempoTotal;
         pthread_mutex_unlock(&mutexMain);
     }
-    printf("es el final\n");
     pthread_mutex_lock(&mutexFinalMain);
     if (currentMartian!=-1){
         char data2[STR_LEN];
@@ -366,7 +365,6 @@ void *martian_start(void *arg){
             break;
         }
     }
-    printf("son nuestros finales\n");
     pthread_mutex_lock(&mutex);
     martian->timefinished=lastTime;
     char data[STR_LEN];
