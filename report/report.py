@@ -159,6 +159,8 @@ def plot_report(marcianos, tiempos, arribos, nombre_algoritmo):
     ax_procesos.set_xticks(ticks=np.round(np.linspace(0, maximo+1, number_of_grid_lines)))
     ax_procesos.grid(axis = 'x', color = 'gray', linestyle = '--', linewidth = 1)
     ax_timeline.grid(axis = 'x', color = 'gray', linestyle = '--', linewidth = 1)
+    ax_timeline.set_xlim(xmin=0.0, xmax=maximo+1)
+    ax_procesos.set_xlim(xmin=0.0, xmax=maximo+1)
     plt.xlim((0,maximo+1))
 
     # Se muestra el grafico
