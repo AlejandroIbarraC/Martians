@@ -211,7 +211,7 @@ void *mainThread(void *arg){
                         writeinFile(data,ARCHIVOTIME);
                         printf("marciano #%d ejecutado %d segundos para un total de %d segundos\n", currentMartian, time ,martian->executedtime);
                         char data2[STR_LEN];
-                        sprintf(data2, "%d,%d,", currentMartian,tiempoTotal);
+                        sprintf(data2, "%d,%d,", martianid,tiempoTotal);
                         writeinFile(data2,ARCHIVOTIME);
                         printf("interrupcion de marciano #%d a el marciano activo #%d a los %d segundos\n", martianid, currentMartian ,tiempoTotal);
                         currentMartian = martianid;
@@ -359,7 +359,7 @@ void *martian_start(void *arg){
                 martian->currentDirection = nextMove;
                 moveMartian(lastDirection, nextMove, martian);
             }
-            usleep(500000);
+            usleep(1000000);
         }
         pthread_mutex_unlock(&mutex);
         if (martian->col==0 && martian->row==5){
