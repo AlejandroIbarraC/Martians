@@ -232,8 +232,9 @@ void *mainThread(void *arg){
         sprintf(data2, "%d\n", lastTime);
         writeinFile(data2,ARCHIVOTIME);
     }
-
-    system("python3 ../report/main.py");
+    if (countMartians!=0) {
+        system("python3 ../report/main.py");
+    }
     pthread_mutex_unlock(&mutexFinalMain);
     pthread_mutex_unlock(&mutexFinal);
 }
