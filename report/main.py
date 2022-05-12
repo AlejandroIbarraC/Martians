@@ -1,4 +1,3 @@
-from parso import parse
 import parser as parser
 import report as report
 

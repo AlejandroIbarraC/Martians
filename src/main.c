@@ -359,18 +359,34 @@ void buttonAddMartian(GtkWidget* widget, gpointer data) {
  */
 void buttonStartStop(GtkWidget* widget, gpointer data) {
     // Disable UI controls
-    gtk_widget_set_sensitive(radio_os_hbox, FALSE);
-    gtk_widget_set_sensitive(sim_type_hbox, FALSE);
-    gtk_widget_set_sensitive(gtkButtonStartStop, FALSE);
+    if (simType==MANUAL) {
+        gtk_widget_set_sensitive(radio_os_hbox, FALSE);
+        gtk_widget_set_sensitive(sim_type_hbox, FALSE);
+        gtk_widget_set_sensitive(gtkButtonStartStop, FALSE);
 
-    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_os1)) == TRUE) {
-        // Interactive
-        gtk_widget_set_sensitive(radio_cal_hbox, FALSE);
-    } else {
-        // RTOS
-        gtk_widget_set_sensitive(radio_rtos_cal_hbox, FALSE);
+        if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_os1)) == TRUE) {
+            // Interactive
+            gtk_widget_set_sensitive(radio_cal_hbox, FALSE);
+        } else {
+            // RTOS
+            gtk_widget_set_sensitive(radio_rtos_cal_hbox, FALSE);
+        }
+    } else if (simType== AUTO){
+        gtk_widget_set_sensitive(radio_os_hbox, FALSE);
+        gtk_widget_set_sensitive(entryEnergy, FALSE);
+        gtk_widget_set_sensitive(radio_color_hbox, FALSE);
+        gtk_widget_set_sensitive(gtkButtonAddMartian, FALSE);
+
+        if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_os1)) == TRUE) {
+            // Interactive
+            gtk_widget_set_sensitive(radio_cal_hbox, FALSE);
+            gtk_widget_set_sensitive(entryArrivalTime, FALSE);
+        } else {
+            // RTOS
+            gtk_widget_set_sensitive(radio_rtos_cal_hbox, FALSE);
+            gtk_widget_set_sensitive(entryPeriod, FALSE);
+        }
     }
-
     // Call logic to start
     sem_post(startSemaphore);
     running = true;
@@ -387,6 +403,10 @@ void destroy(GtkWidget* widget, gpointer data) {
 
 void destroy_aux() {
     finish=1;
+    if (get_size()==0){
+        pthread_mutex_unlock(&mutexFinalMain);
+    }
+
     // Safe memory exit. Delete stuff
     g_print("Deleting stuff for safe exit\n");
 
@@ -400,8 +420,11 @@ void destroy_aux() {
     SDL_DestroyWindow(sdlWindow);
     SDL_Quit();
 
+    pthread_mutex_lock(&mutexFinal);
     // Close GTK
     gtk_main_quit();
+    pthread_mutex_unlock(&mutexFinal);
+    freedata();
 }
 
 
@@ -411,6 +434,7 @@ void destroy_aux() {
 static gboolean idle(void *ud) {
     (void)ud;
     if (get_size()==0 && simType==AUTO && running==true){
+
         destroy_aux();
     } else if (finish==1){
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Schedule error!", "ERROR: Could not schedule martians", NULL);
@@ -460,8 +484,10 @@ static gboolean idle(void *ud) {
             // Render stuff
             SDL_RenderPresent(sdlRenderer);
 
+            char tiempo[33];
+            sprintf(tiempo,"%d",lastTime);
             // Update time label
-            gtk_label_set_text((GtkLabel *) time_value_label, "Hola");
+            gtk_label_set_text((GtkLabel *) time_value_label, tiempo);
 
             // Handle frame on loop
             f_time++;
@@ -557,20 +583,7 @@ void onChangeSimType(GtkWidget* widget, gpointer data) {
     } else {
         simType=AUTO;
         printf("auto\n");
-        gtk_widget_set_sensitive(radio_os_hbox, FALSE);
-        gtk_widget_set_sensitive(entryEnergy, FALSE);
-        gtk_widget_set_sensitive(radio_color_hbox, FALSE);
-        gtk_widget_set_sensitive(gtkButtonAddMartian, FALSE);
 
-        if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_os1)) == TRUE) {
-            // Interactive
-            gtk_widget_set_sensitive(radio_cal_hbox, FALSE);
-            gtk_widget_set_sensitive(entryArrivalTime, FALSE);
-        } else {
-            // RTOS
-            gtk_widget_set_sensitive(radio_rtos_cal_hbox, FALSE);
-            gtk_widget_set_sensitive(entryPeriod, FALSE);
-        }
     }
 }
 
