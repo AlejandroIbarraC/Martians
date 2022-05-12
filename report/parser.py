@@ -21,6 +21,9 @@ def parse_timeline():
         if index>0:
             if last_row['fin']!=row['inicio']:
                 df.loc[index-0.5]= "", last_row['fin'], row['inicio'], row['inicio']-last_row['fin']
+        else:
+            if row['inicio']>0:
+                df.loc[index-0.5]= "", 0, row['inicio'], row['inicio']
         last_row = row
     df = df.sort_index().reset_index(drop=True)
     # Convierte al formato de lista
