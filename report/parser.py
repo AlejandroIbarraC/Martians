@@ -39,6 +39,9 @@ def parse_marcianos():
     df['marciano'] = df.apply(lambda row : str(int(row['marciano'])), axis = 1)
     df['vacio'] = df.apply(lambda row : False, axis = 1)
     df.drop(0,inplace=True)
+    # Si es RTOS, creacion es arribo
+    if mode == 1:
+        df['arribo'] = df['creacion']
     # Si es RTOS, agrega repeticiones
     if mode == 1:
         for index, row in df.iterrows():
