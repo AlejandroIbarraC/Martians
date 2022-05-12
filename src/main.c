@@ -420,10 +420,15 @@ void destroy_aux() {
     SDL_DestroyWindow(sdlWindow);
     SDL_Quit();
 
-    pthread_mutex_lock(&mutexFinal);
-    // Close GTK
-    gtk_main_quit();
-    pthread_mutex_unlock(&mutexFinal);
+    if (running==true) {
+        pthread_mutex_lock(&mutexFinal);
+        // Close GTK
+        gtk_main_quit();
+        pthread_mutex_unlock(&mutexFinal);
+    } else{
+        sem_post(startSemaphore);
+        gtk_main_quit();
+    }
     freedata();
 }
 
