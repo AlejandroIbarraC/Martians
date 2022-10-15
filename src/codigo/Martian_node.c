@@ -101,17 +101,16 @@ void SRTNPriority() {
     }
     for (int step = 0; step < size - 1; ++step) {
         for (int i = 0; i < size - step - 1; ++i) {
-            if (findMartianByID(array[i])->executiontime >findMartianByID(array[i+1])->executiontime) {
+            if (findMartianByID(array[i])->executiontime-findMartianByID(array[i])->currentExecutedTime >findMartianByID(array[i+1])->executiontime-findMartianByID(array[i+1])->currentExecutedTime) {
                 int temp = array[i];
                 array[i] = array[i + 1];
                 array[i + 1] = temp;
             }
         }
     }
-    printf("orden: \n");
+
     for (int i=0; i<size;i++){
         findMartianByID(array[i])->priority=i;
-        printf("marciano #%d\n", array[i]);
     }
 }
 void FCFSPriority() {

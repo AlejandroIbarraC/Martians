@@ -16,6 +16,7 @@ typedef struct {
     int energy;
     int executedtime;
     int executiontime;//totalEnergy
+    int currentExecutedTime;
     int period;
     int ready;
     int arrivalTime;
@@ -29,6 +30,7 @@ typedef struct {
     int currentChangey;
     int timeCreated;
     int movDir;
+    int timefinished;
     SDL_Rect spriteRect;
     SDL_Rect rect;
     GtkWidget *pBar;
