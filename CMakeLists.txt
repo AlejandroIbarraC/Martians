@@ -4,7 +4,7 @@ project(ui_martians C)
 set(CMAKE_C_STANDARD 23)
 
 find_package(SDL2 REQUIRED)
-#find_package(SDL2_image REQUIRED)
+find_package(SDL2_image REQUIRED)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)

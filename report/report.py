@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
-## Ploteo de ejecucion de procesos
-# Se leen los datos iniciales
+## Process execution plotting
+# Read initial data
 
 marcianos = ["A", "B", "C", "D"]
 
@@ -12,31 +12,31 @@ tiempos = [{"marciano":"A", "duracion":2}, {"marciano":"B", "duracion":4}, {"mar
            {"marciano":"A", "duracion":4}, {"marciano":"B", "duracion":5}, {"marciano":"C", "duracion":10}, {"marciano":"", "duracion":11},
            {"marciano":"C", "duracion":10}]
 
-# Random de colores
+# Randomize color
 colores = {"":(1,1,1)}
 for marciano in marcianos:
     colores[marciano] = (random.random()*0.4+0.5, random.random()*0.4+0.5, random.random()*0.4+0.5)
 
-# Se agrega el color y id a cada tiempo
+# Add color and id to each time
 maximo = 0
 for i, tiempo in enumerate(tiempos):
     maximo += tiempo['duracion']
     tiempo['color'] = colores[tiempo['marciano']]
     tiempo['id'] = tiempo['marciano']+"_"+str(i)
 
-# Se crea el diccionario de id con duracion
+# Create id dictionary with duration
 data = {}
 for tiempo in tiempos:
     data[tiempo['id']] = [tiempo['duracion']]
  
-# Se convierte el diccionario a dataframe
+# Cast dictionary to Data Frame
 df = pd.DataFrame(data)
 
-# Se prepara el plot
+# Prepare plot
 fig, axes = plt.subplots(nrows=2, ncols=1, constrained_layout=True)
 ax = df.plot(stacked=True, kind='barh', ax=axes[1], width=0.1)
 
-# Se agregan los labels
+# Add labels
 
 for i, bar in enumerate(ax.patches):
     height = bar.get_height()
@@ -55,18 +55,18 @@ for i, bar in enumerate(ax.patches):
     ax.text(label_x, label_y, label_text, ha='center',    
             va='center')
     
-# Se agregan los labels de x,y
-Class = ["Proceso"]
+# Add labels to x and y coords
+Class = ["Process"]
 ax.set_yticklabels(Class,rotation='horizontal')
 
-ax.set_title('Tiempos de ejecucion de los procesos')
-ax.set_xlabel('Tiempo (ms)')
+ax.set_title('Process execution time')
+ax.set_xlabel('Time (ms)')
 
-# Se remueve la leyenda
+# Delete legend
 
 ax.get_legend().remove()
 
-# Se agregan las lineas de grid
+# Add grid lines
 
 #ax.xticks(ticks=np.round(np.linspace(0, maximo, 15)))
 ax.grid(axis = 'x', color = 'gray', linestyle = '--', linewidth = 1)
@@ -74,16 +74,16 @@ ax.grid(axis = 'x', color = 'gray', linestyle = '--', linewidth = 1)
 
 ####################################################################################################################3
 
-## Ploteo de procesos listos
+## Plot complete processes
 
-# Se leen los datos iniciales
+# Read initial data
 
 marcianos = ["A", "B", "C", "D"]
 
 arribos = [{"marciano":"B", "duracion":4, "arribo":5, "vacio":False}, {"marciano":"A", "duracion":2, "arribo":0, "vacio":False},
  {"marciano":"C", "duracion":8, "arribo":9, "vacio":False},  {"marciano":"C", "duracion":8, "arribo":20, "vacio":False}]
 
-# Se añaden datos de arribo intermedios para los espacios vacios
+# Add intermediate data to fill in empty spaces
 new_arribos = []
 last_time_per_marciano = [0 for marciano in marcianos]
 for marciano_id, marciano in enumerate(marcianos):
@@ -95,13 +95,13 @@ for marciano_id, marciano in enumerate(marcianos):
             last_time_per_marciano[marciano_id] = arribo["arribo"]+arribo["duracion"]
 arribos = new_arribos           
 
-# Se agregan los colores y ids a los arribos
+# Add color and id to arrival data
 for i, arribo in enumerate(arribos):
     arribo['color'] = colores[arribo['marciano']]
     arribo['id'] = arribo['marciano']+"_"+str(i)
 
 
-# Se crea el diccionario con los datos de arribo 
+# Arrival data dictionary creation
 data = {}
 new_arribos = []
 for arribo in arribos:
@@ -116,13 +116,13 @@ for arribo in arribos:
 
 arribos = new_arribos
 
-# Se convierte el diccionario a dataframe
+# Cast dictionary to Data Frame
 df = pd.DataFrame(data)
 
-# Se prepara el plot
+# Prepare plot
 ax = df.plot(stacked=True, kind='barh', ax=axes[0])
 
-# Se agregan los labels
+# Add labels
 for i, bar in enumerate(ax.patches):
     height = bar.get_height()
     width = bar.get_width()
@@ -142,20 +142,20 @@ for i, bar in enumerate(ax.patches):
     ax.text(label_x, label_y, label_text, ha='center',    
             va='center')
     
-# # Se agregan los labels de x,y
+# # Add labels for x and y coordinates
 ax.set_yticklabels(marcianos,rotation='horizontal')
 
-ax.set_title('Tiempos de llegada de los procesos')
-ax.set_xlabel('Tiempo (ms)')
+ax.set_title('Process arrival time')
+ax.set_xlabel('Time (ms)')
 
-# Se remueve la leyenda
+# Delete legend
 
 ax.get_legend().remove()
 
-# Se agregan las lineas de grid
+# Add gridlines
 
 #ax.xticks(ticks=np.round(np.linspace(0, maximo, 15)))
 ax.grid(axis = 'x', color = 'gray', linestyle = '--', linewidth = 1)
 
-# Se muestra el grafico
+# Show plot
 plt.show()
